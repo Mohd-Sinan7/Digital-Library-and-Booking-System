@@ -1,9 +1,45 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
 .venv/
 venv/
+env/
+
+# Secrets and local configuration
 .env
+.env.*
+!.env.example
+
+# Local databases
 *.db
+*.sqlite
+*.sqlite3
+
+# Test, coverage and lint caches
 .pytest_cache/
+.ruff_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+
+# Trained model files (rebuilt from data)
+*.pkl
+*.joblib
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Office and draw.io temporary files
+~$*
+~*.tmp
+*.drawio.bkp
+*.drawio.dtmp

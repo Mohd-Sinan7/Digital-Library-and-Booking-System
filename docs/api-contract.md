@@ -51,14 +51,14 @@ def get_book(book_id: int, user: CurrentUser = Depends(get_current_user)):
 An admin-only helper that returns 403 to members is added with the Roles story by
 31 Oct. Until then, check `user.role == "admin"` yourself.
 
-### Stub tokens (until real login is merged on 31 Oct)
+### Stub tokens (until real login is merged on 1 Nov)
 
 | Header | You are |
 |---|---|
 | `Authorization: Bearer test-member-token` | User 1, Test Member, role `member` |
 | `Authorization: Bearer test-admin-token` | User 2, Test Admin, role `admin` |
 
-Any other token, or no token, gets 401. After 31 Oct, get a real token from
+Any other token, or no token, gets 401. After 1 Nov, get a real token from
 `POST /api/auth/login`. Your code does not change.
 
 ---
@@ -193,7 +193,8 @@ below 0 or above 100, or `current_page` is below 0 or above the book's `page_cou
 ### GET /api/reading/history
 
 The current user's reading history (FR-U7), newest `updated_at` first. Optional
-filter: `?status=finished`. Member 1 uses this for recommendations.
+filter: `?status=finished`. The My Reading screen uses this. Member 1's recommender
+calls the in-process function `reading.get_history(user_id)` instead (see below).
 
 Response `200`:
 
@@ -212,13 +213,37 @@ Response `200`:
 {"books_finished": 4, "books_reading": 2, "books_want_to_read": 5, "pages_read": 1260}
 ```
 
-### Question for Member 1
+### In-process function: reading.get_history(user_id)
 
-The endpoints above only return the logged-in user's own data. A popularity score
-needs read counts across all users. Because everything runs in one app, the plan is
-to also expose Python functions in `src/users/` that the recommender can call
-directly, for example `get_history(user_id)` and `get_read_counts()`. Confirm the
-names and return shapes in this section.
+Member 1's recommender calls this Python function directly instead of the REST
+endpoint. It lives in `src/users/reading.py` and is live by 1 Nov.
+
+```python
+from src.users import reading
+
+records = reading.get_history(user_id)
+```
+
+Signature and return shape:
+
+```python
+@dataclass(frozen=True)
+class ReadingRecord:
+    book_id: int
+    status: str                 # "want_to_read", "reading" or "finished"
+    current_page: int
+    percent: float              # 0 to 100
+    started_at: datetime | None # UTC; None until the user starts reading
+    updated_at: datetime        # UTC
+
+
+def get_history(user_id: int) -> list[ReadingRecord]:
+    """Return all of the user's reading records, newest updated_at first."""
+```
+
+- Returns an empty list for a user with no records, or a `user_id` that does not exist.
+- Book details (title, author, genre) are not included. Get them from `catalog.get_books()`.
+- No token is needed: the caller is code in the same app, not an HTTP request.
 
 ---
 

@@ -4,8 +4,9 @@ A standalone application for managing a digital book collection. It covers book
 cataloging, borrowing and reservations, user reading history and progress
 tracking, and personalised book recommendations using machine learning.
 
-Software Engineering mini-project, Sprint 1 (29 Oct to 31 Oct 2026) and Sprint 2
-(2 Nov to 7 Nov 2026), presentation from 9 Nov 2026.
+Software Engineering mini-project. Sprint 1 runs from 29 Oct to 2 Nov 2026 (midday),
+Sprint 2 from 2 Nov (afternoon) to 7 Nov 2026, and the presentation slot is 9, 11 or
+12 Nov 2026.
 
 ## Features
 

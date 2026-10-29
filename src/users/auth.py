@@ -1,7 +1,7 @@
 """Authentication helper shared by every module.
 
 STUB (29 Oct): the token is looked up in a fixed table of test users, so other
-modules can protect their endpoints before real login exists. By 31 Oct the body
+modules can protect their endpoints before real login exists. By 1 Nov the body
 of get_current_user() switches to JWT validation; its signature and CurrentUser
 stay the same, so callers do not change.
 """

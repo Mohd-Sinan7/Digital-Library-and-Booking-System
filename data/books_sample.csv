@@ -1,0 +1,21 @@
+book_id,title,author,isbn,genre,description,year,page_count,cover_url,total_copies
+1,Pride and Prejudice,Jane Austen,9790000000018,Romance,A witty story of manners and marriage in Regency England.,1813,432,https://covers.example.org/1.jpg,4
+2,Emma,Jane Austen,9790000000025,Romance,A young matchmaker learns the limits of meddling.,1815,474,https://covers.example.org/2.jpg,2
+3,Frankenstein,Mary Shelley,9790000000032,Science Fiction,A scientist creates life and faces the consequences.,1818,280,https://covers.example.org/3.jpg,3
+4,Moby-Dick,Herman Melville,9790000000049,Adventure,Captain Ahab hunts the white whale.,1851,635,https://covers.example.org/4.jpg,2
+5,Great Expectations,Charles Dickens,9790000000056,Classic,An orphan's journey from poverty to wealth and back to wisdom.,1861,505,https://covers.example.org/5.jpg,3
+6,A Tale of Two Cities,Charles Dickens,9790000000063,Historical,Lives entwined across London and revolutionary Paris.,1859,489,https://covers.example.org/6.jpg,1
+7,The Time Machine,H. G. Wells,9790000000070,Science Fiction,A traveller visits the distant future of humanity.,1895,118,https://covers.example.org/7.jpg,5
+8,The War of the Worlds,H. G. Wells,9790000000087,Science Fiction,Martians invade Victorian England.,1898,192,https://covers.example.org/8.jpg,2
+9,Dracula,Bram Stoker,9790000000094,Horror,The Count's attempt to move from Transylvania to England.,1897,418,https://covers.example.org/9.jpg,3
+10,The Adventures of Sherlock Holmes,Arthur Conan Doyle,9790000000100,Mystery,Twelve cases of the famous consulting detective.,1892,307,https://covers.example.org/10.jpg,4
+11,The Hound of the Baskervilles,Arthur Conan Doyle,9790000000117,Mystery,Holmes investigates a legendary hound on the moors.,1902,256,https://covers.example.org/11.jpg,1
+12,Treasure Island,Robert Louis Stevenson,9790000000124,Adventure,Young Jim Hawkins sails in search of buried treasure.,1883,292,https://covers.example.org/12.jpg,3
+13,Alice's Adventures in Wonderland,Lewis Carroll,9790000000131,Fantasy,A girl falls down a rabbit hole into a strange world.,1865,96,https://covers.example.org/13.jpg,6
+14,The Picture of Dorian Gray,Oscar Wilde,9790000000148,Classic,A portrait ages while its subject stays young.,1890,254,https://covers.example.org/14.jpg,2
+15,Little Women,Louisa May Alcott,9790000000155,Classic,Four sisters grow up during the American Civil War.,1868,759,https://covers.example.org/15.jpg,3
+16,Twenty Thousand Leagues Under the Seas,Jules Verne,9790000000162,Adventure,Captain Nemo's submarine voyage around the world.,1870,426,https://covers.example.org/16.jpg,2
+17,Around the World in Eighty Days,Jules Verne,9790000000179,Adventure,Phileas Fogg races to circle the globe on a wager.,1872,272,https://covers.example.org/17.jpg,4
+18,The Jungle Book,Rudyard Kipling,9790000000186,Fantasy,Mowgli is raised by wolves in the Indian jungle.,1894,212,https://covers.example.org/18.jpg,3
+19,Gitanjali,Rabindranath Tagore,9790000000193,Poetry,A collection of devotional song offerings.,1910,104,https://covers.example.org/19.jpg,2
+20,The Art of War,Sun Tzu,9790000000209,Non-Fiction,An ancient treatise on strategy and conflict.,-500,68,https://covers.example.org/20.jpg,1

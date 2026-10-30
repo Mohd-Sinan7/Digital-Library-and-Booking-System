@@ -259,9 +259,150 @@ To be filled in by Member 2 on 29 Oct. Already agreed in the member plans:
 
 ## Booking and Borrowing (Member 4)
 
-To be filled in by Member 4 on 29 Oct. Endpoints: `POST /api/bookings`,
-`POST /api/bookings/{id}/borrow`, `POST /api/bookings/{id}/return`,
-`DELETE /api/bookings/{id}`, `GET /api/bookings/me`.
+Filled in by Member 4 (Rushi Eswar) on 30 Oct 2026.
+
+All booking endpoints require authentication via `Authorization: Bearer <token>` using `CurrentUser`.
+
+### Booking object shape
+
+```json
+{
+  "id": 101,
+  "user_id": 7,
+  "book_id": 42,
+  "status": "reserved",
+  "created_at": "2026-10-30",
+  "due_date": null,
+  "returned_at": null,
+  "is_active": true,
+  "is_overdue": false
+}
+```
+
+- `status` is one of `"reserved"`, `"borrowed"`, `"returned"`, `"cancelled"`, `"expired"`.
+- `is_active` is true for `"reserved"` and `"borrowed"`.
+- `is_overdue` is true when `status == "borrowed"`, `due_date` is set, and today is past `due_date`.
+
+### POST /api/bookings
+
+Reserves a copy of a book for the authenticated member (BR-01, BR-02, BR-03, BR-04). Requires at least 1 available copy and member must have fewer than 5 active bookings. Decrements `available_copies` by 1.
+
+Request:
+
+```json
+{"book_id": 42}
+```
+
+Response `201`:
+
+```json
+{
+  "id": 101,
+  "user_id": 7,
+  "book_id": 42,
+  "status": "reserved",
+  "created_at": "2026-10-30",
+  "due_date": null,
+  "returned_at": null,
+  "is_active": true,
+  "is_overdue": false
+}
+```
+
+Errors: `401` unauthorized; `404` book not found; `409` no copies available or member reached limit of 5 active bookings.
+
+### POST /api/bookings/{id}/borrow
+
+Transitions a reservation to borrowed status (BR-05, BR-06). Sets the loan due date to 14 calendar days from the borrowing date.
+
+Response `200`:
+
+```json
+{
+  "id": 101,
+  "user_id": 7,
+  "book_id": 42,
+  "status": "borrowed",
+  "created_at": "2026-10-30",
+  "due_date": "2026-11-13",
+  "returned_at": null,
+  "is_active": true,
+  "is_overdue": false
+}
+```
+
+Errors: `401` unauthorized; `404` booking not found; `409` booking is not in `reserved` status.
+
+### POST /api/bookings/{id}/return
+
+Processes the return of a borrowed book (BR-07, BR-08). Sets status to `returned` and records `returned_at`. Restores 1 available copy to the catalog. Repeated returns are rejected or idempotent to prevent duplicate stock increments.
+
+Response `200`:
+
+```json
+{
+  "id": 101,
+  "user_id": 7,
+  "book_id": 42,
+  "status": "returned",
+  "created_at": "2026-10-30",
+  "due_date": "2026-11-13",
+  "returned_at": "2026-10-30",
+  "is_active": false,
+  "is_overdue": false
+}
+```
+
+Errors: `401` unauthorized; `404` booking not found; `409` booking is not in `borrowed` status.
+
+### DELETE /api/bookings/{id}
+
+Cancels an active reservation (BR-09, BR-11). Transitions status to `cancelled` and restores 1 available copy.
+
+Response `200`:
+
+```json
+{
+  "id": 101,
+  "user_id": 7,
+  "book_id": 42,
+  "status": "cancelled",
+  "created_at": "2026-10-30",
+  "due_date": null,
+  "returned_at": null,
+  "is_active": false,
+  "is_overdue": false
+}
+```
+
+Errors: `401` unauthorized; `404` booking not found; `409` booking is not in `reserved` status (e.g. already borrowed or cancelled).
+
+### GET /api/bookings/me
+
+Returns all bookings for the authenticated member, newest first.
+
+Response `200`:
+
+```json
+{
+  "items": [
+    {
+      "id": 101,
+      "user_id": 7,
+      "book_id": 42,
+      "status": "reserved",
+      "created_at": "2026-10-30",
+      "due_date": null,
+      "returned_at": null,
+      "is_active": true,
+      "is_overdue": false
+    }
+  ]
+}
+```
+
+Errors: `401` unauthorized.
+
 
 ## Recommendation Engine (Member 1)
 

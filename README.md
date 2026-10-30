@@ -24,7 +24,7 @@ Sprint 2 from 2 Nov (afternoon) to 7 Nov 2026, and the presentation slot is 9, 1
 | Member 1 | _name_ | Recommendation Engine | Architecture owner, presentation lead |
 | Member 2 | _name_ | Book Catalog, app shell and home page | Scrum Master |
 | Member 3 | Nagalapuram Sai Mukesh Reddy (PES1UG24AM170) | Users and Reading Tracking | DevOps (repo, CI/CD, deployment) |
-| Member 4 | _name_ | Booking and Borrowing | QA Lead |
+| Member 4 | Rushi Eswar | Booking and Borrowing | QA Lead |
 
 ## Repository layout
 

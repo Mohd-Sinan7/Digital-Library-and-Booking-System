@@ -10,8 +10,7 @@ from dataclasses import dataclass
 
 from fastapi import Header, HTTPException, status
 
-MEMBER = "member"
-ADMIN = "admin"
+from src.users.models import ADMIN, MEMBER
 
 
 @dataclass(frozen=True)

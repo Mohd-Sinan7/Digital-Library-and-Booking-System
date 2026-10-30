@@ -82,10 +82,12 @@ From the repository root:
 ```bash
 pip install -r requirements-dev.txt
 ruff check .
+pytest
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) builds and lints every push and pull
-request. Unit tests join the pipeline in Sprint 2.
+request. Unit tests join the pipeline in Sprint 2; until then, run `pytest` locally
+before you open a pull request.
 
 ## Contributing
 

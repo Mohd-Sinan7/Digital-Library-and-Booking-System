@@ -2,14 +2,16 @@
 
 GitHub Actions pipelines. Owner: Member 3.
 
-Sprint 1: `ci.yml` (CI pipeline v1) runs on every push and every pull request:
+`ci.yml` (CI pipeline v1) runs on every push and every pull request:
 
 1. Check out the code
-2. Set up Python and cache dependencies
-3. Install dependencies
-4. Build
-5. Lint
-6. Report the result on the pull request
+2. Set up Python 3.11 and cache pip downloads
+3. Install dependencies from `requirements-dev.txt`
+4. Build: byte-compile everything in `src`
+5. Lint: `ruff check .`
 
-Sprint 2: a test stage with a 70% coverage gate, a Docker build, deployment on
-merge to `main`, and a `/health` smoke test after deployment.
+The result shows on each pull request as the `ci` check. After it has run once, it
+can be added as a required status check in the branch protection rule for `main`.
+
+Sprint 2: a test stage with a coverage gate (50% from 4 Nov, 70% by 6 Nov), a Docker
+build, deployment on merge to `main`, and a `/health` smoke test after deployment.

@@ -77,15 +77,17 @@ You need Python 3.11 or newer.
 
 ## How to test
 
-Tests and the CI pipeline are added in Sprint 1. Run them from the repository root:
+From the repository root:
 
 ```bash
-pip install pytest pytest-cov ruff
+pip install -r requirements-dev.txt
 ruff check .
 pytest
 ```
 
-GitHub Actions will run the same checks on every push and pull request.
+GitHub Actions (`.github/workflows/ci.yml`) builds and lints every push and pull
+request. Unit tests join the pipeline in Sprint 2; until then, run `pytest` locally
+before you open a pull request.
 
 ## Contributing
 

@@ -143,7 +143,7 @@ def test_fr_b1_reserve_removed_book_is_rejected():
 
 
 def test_fr_b9_reserve_zero_available_copies_returns_conflict_and_changes_nothing():
-    """FR-B9: Reserving a book with 0 available copies returns error/conflict and changes nothing."""
+    """FR-B9: Reserving with 0 copies returns error/conflict and changes nothing."""
     service = BookingService()
     service.seed_book(book_id=103, title="Popular Novel", available_copies=0)
 
@@ -159,7 +159,7 @@ def test_fr_b9_reserve_zero_available_copies_returns_conflict_and_changes_nothin
 
 
 def test_nfr_b1_concurrent_reservations_single_copy():
-    """NFR-B1: In a concurrent test exactly one reservation succeeds and available copies never go below 0."""
+    """NFR-B1: In concurrent test 1 succeeds and copies never go below 0."""
     service = BookingService()
     # Exactly one copy available
     service.seed_book(book_id=104, title="Rare Manuscript", available_copies=1)

@@ -149,15 +149,24 @@ class BookingService:
                     raise NoCopiesAvailableError(f"No copies of '{title}' are currently available.")
 
                 cursor.execute(
-                    "SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status IN ('reserved', 'borrowed')",
+                    """
+                    SELECT COUNT(*) FROM bookings
+                    WHERE user_id = ? AND status IN ('reserved', 'borrowed')
+                    """,
                     (user_id,),
                 )
                 active_count = cursor.fetchone()[0]
                 if active_count >= MAX_ACTIVE_BOOKINGS:
-                    raise MaxActiveBookingsLimitError("A member may have at most 5 active bookings.")
+                    raise MaxActiveBookingsLimitError(
+                        "A member may have at most 5 active bookings."
+                    )
 
                 cursor.execute(
-                    "UPDATE books SET available_copies = available_copies - 1 WHERE id = ? AND available_copies > 0",
+                    """
+                    UPDATE books
+                    SET available_copies = available_copies - 1
+                    WHERE id = ? AND available_copies > 0
+                    """,
                     (book_id,),
                 )
                 if cursor.rowcount != 1:
@@ -193,7 +202,10 @@ class BookingService:
             cursor.execute("BEGIN IMMEDIATE")
             try:
                 cursor.execute(
-                    "SELECT id, user_id, book_id, status, created_at, due_date, returned_at FROM bookings WHERE id = ?",
+                    """
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    FROM bookings WHERE id = ?
+                    """,
                     (booking_id,),
                 )
                 row = cursor.fetchone()
@@ -233,7 +245,10 @@ class BookingService:
             cursor.execute("BEGIN IMMEDIATE")
             try:
                 cursor.execute(
-                    "SELECT id, user_id, book_id, status, created_at, due_date, returned_at FROM bookings WHERE id = ?",
+                    """
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    FROM bookings WHERE id = ?
+                    """,
                     (booking_id,),
                 )
                 row = cursor.fetchone()
@@ -277,7 +292,10 @@ class BookingService:
             cursor.execute("BEGIN IMMEDIATE")
             try:
                 cursor.execute(
-                    "SELECT id, user_id, book_id, status, created_at, due_date, returned_at FROM bookings WHERE id = ?",
+                    """
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    FROM bookings WHERE id = ?
+                    """,
                     (booking_id,),
                 )
                 row = cursor.fetchone()

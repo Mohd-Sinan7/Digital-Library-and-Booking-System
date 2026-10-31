@@ -6,9 +6,9 @@ GitHub Actions pipelines. Owner: Member 3.
 
 1. Check out the code
 2. Set up Python 3.11 and cache pip downloads
-3. Install dependencies from `requirements-dev.txt`
+3. Install dependencies from `requirements.txt`
 4. Build: byte-compile everything in `src`
-5. Lint: `ruff check .`
+5. Lint: `ruff check --line-length 100 --select E,F,W,I .`
 
 The result shows on each pull request as the `ci` check. After it has run once, it
 can be added as a required status check in the branch protection rule for `main`.

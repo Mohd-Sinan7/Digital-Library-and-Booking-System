@@ -1,6 +1,6 @@
 # tests
 
-Unit and integration tests, run with `python -m pytest` from the repository root.
+Unit and integration tests, run with `pytest` (or `python -m pytest`) from the repository root.
 
 - Mirror the `src` layout: tests for `src/users/` go in `tests/users/`.
 - Name files `test_<what>.py` and functions `test_<behaviour>`.

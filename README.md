@@ -94,11 +94,11 @@ From the repository root:
 ```bash
 pip install -r requirements.txt
 ruff check --line-length 100 --select E,F,W,I .
-python -m pytest
+pytest
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) builds and lints every push and pull
-request. Unit tests join the pipeline in Sprint 2; until then, run `python -m pytest`
+request. Unit tests join the pipeline in Sprint 2; until then, run `pytest`
 locally before you open a pull request.
 
 ## Contributing

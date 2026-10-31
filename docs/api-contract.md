@@ -406,6 +406,96 @@ Errors: `401` unauthorized.
 
 ## Recommendation Engine (Member 1)
 
-To be filled in by Member 1 on 29 Oct. Already agreed: each recommendation carries
-`book_id`, `title`, `author`, `cover_url`, `score` and `reason`. Endpoints:
-`GET /api/recommendations/me?limit=10` and `POST /api/recommendations/refresh` (admin).
+Agreed on 29 Oct 2026. Each recommendation carries `book_id`, `title`, `author`,
+`cover_url`, `score`, and `reason`, so Member 2's home page can render cards directly
+without additional API roundtrips.
+
+### Common Interface (NFR-R2)
+
+All recommendation algorithms implement the common `Recommender` interface in
+`src/recommender/base.py`:
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Recommendation:
+    book_id: int
+    score: float
+    reason: str
+
+
+class Recommender(ABC):
+    @abstractmethod
+    def recommend(self, user_id: int, n: int = 10) -> list[Recommendation]:
+        """Generate top-n recommendations for a given user."""
+        ...
+```
+
+To swap or test algorithms without touching calling code or routes:
+
+```python
+from src.recommender import set_recommender, MyNewRecommender
+
+set_recommender(MyNewRecommender())
+```
+
+### In-process function: recommender.get_recommendations(user_id, limit=10)
+
+Member 2's home page service or internal callers can call this in-process Python function
+directly:
+
+```python
+from src.recommender import get_recommendations
+
+recommendations = get_recommendations(user_id=1, limit=10)
+```
+
+Returns a list of enriched dictionaries matching the items in `GET /api/recommendations/me`.
+
+### GET /api/recommendations/me
+
+Returns personalized recommendations for the logged-in user, or cold-start fallback (FR-R1, FR-R3).
+Requires authentication (`Authorization: Bearer <token>`).
+
+Query parameters:
+- `limit` (integer, optional, default: 10, min: 1, max: 50): Number of recommendations to return.
+
+Response `200`:
+
+```json
+{
+  "items": [
+    {
+      "book_id": 42,
+      "title": "The Pragmatic Programmer",
+      "author": "Andrew Hunt, David Thomas",
+      "cover_url": "https://images.example.com/covers/42.jpg",
+      "genre": "Technology",
+      "score": 0.95,
+      "reason": "Popular among library readers"
+    }
+  ],
+  "count": 1
+}
+```
+
+Errors: `401` not authenticated; `422` invalid limit query parameter.
+
+### POST /api/recommendations/refresh
+
+Triggers a retrain or cache refresh of the recommendation model (FR-R6). Admin only.
+Requires admin token (`role: admin`).
+
+Response `200`:
+
+```json
+{
+  "status": "ok",
+  "message": "Recommendation models refreshed successfully"
+}
+```
+
+Errors: `401` not authenticated; `403` forbidden (if requested by a non-admin member).

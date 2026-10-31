@@ -4,9 +4,8 @@ A standalone application for managing a digital book collection. It covers book
 cataloging, borrowing and reservations, user reading history and progress
 tracking, and personalised book recommendations using machine learning.
 
-Software Engineering mini-project. Sprint 1 runs from 29 Oct to 2 Nov 2026 (midday),
-Sprint 2 from 2 Nov (afternoon) to 7 Nov 2026, and the presentation slot is 9, 11 or
-12 Nov 2026.
+Software Engineering mini-project. Sprint 1 runs from 30 Oct to 3 Nov 2026, Sprint 2
+from 3 Nov to 8 Nov 2026, and presentations start on 9 Nov 2026.
 
 ## Features
 
@@ -21,23 +20,36 @@ Sprint 2 from 2 Nov (afternoon) to 7 Nov 2026, and the presentation slot is 9, 1
 
 | Member | Name | Module | Cross-cutting role |
 |---|---|---|---|
-| Member 1 | _name_ | Recommendation Engine | Architecture owner, presentation lead |
-| Member 2 | _name_ | Book Catalog, app shell and home page | Scrum Master |
-| Member 3 | Nagalapuram Sai Mukesh Reddy (PES1UG24AM170) | Users and Reading Tracking | DevOps (repo, CI/CD, deployment) |
-| Member 4 | Rushi Eswar | Booking and Borrowing | QA Lead |
+| Member 1 | Mohammed Sinan M T | Recommendation Engine | Architecture owner, presentation lead |
+| Member 2 | Mallela Rishyendra | Book Catalog, app shell and home page | Scrum Master |
+| Member 3 | Nagalapuram Sai Mukesh Reddy | Users and Reading Tracking | DevOps (repo, CI/CD, deployment) |
+| Member 4 | Marreddy Rushieswar Reddy | Booking and Borrowing | QA Lead |
 
 ## Repository layout
 
 ```
-Lab1/                 Lab 1 deliverables: requirements and use-case diagrams
-Lab2/                 Lab 2 deliverables: Jira backlog, sprint board, burndown
-Lab3/                 Lab 3 deliverables: component diagram and justification
-src/                  Application code, one package per module
-tests/                Unit and integration tests
-data/                 Shared book list and demo data
-docs/                 API contract, CI/CD notes, QA documents, sprint reports
-.github/workflows/    GitHub Actions pipeline
+digital-library-booking-system/
+├── src/
+│   ├── catalog/          Book Catalog (Member 2)
+│   ├── users/            Users and Reading Tracking (Member 3)
+│   ├── bookings/         Booking and Borrowing (Member 4)
+│   └── recommender/      Recommendation Engine (Member 1)
+├── tests/                Unit and integration tests, one folder per module
+├── data/                 Shared book list and demo data
+├── scripts/              Seed and helper scripts
+├── docs/                 SRS, SAD and Test Plan, API contract
+│   ├── qa/               Test cases, traceability matrix, test summary
+│   ├── demo/             Sprint demo videos
+│   └── sprint-reports/   Burndown screenshots and sprint reports
+├── .github/
+│   └── workflows/        GitHub Actions pipeline
+├── .gitignore
+├── .env.example
+├── README.md
+└── requirements.txt
 ```
+
+The three project deliverables (SRS, SAD and Test Plan) are in `docs/`.
 
 ## Tech stack
 
@@ -80,20 +92,20 @@ You need Python 3.11 or newer.
 From the repository root:
 
 ```bash
-pip install -r requirements-dev.txt
-ruff check .
+pip install -r requirements.txt
+ruff check --line-length 100 --select E,F,W,I .
 pytest
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) builds and lints every push and pull
-request. Unit tests join the pipeline in Sprint 2; until then, run `pytest` locally
-before you open a pull request.
+request. Unit tests join the pipeline in Sprint 2; until then, run `pytest`
+locally before you open a pull request.
 
 ## Contributing
 
 - Never push to `main`. It is protected, and changes reach it only through pull requests.
 - Branch as `feature/<JIRA-KEY>-short-name`.
-- Start every commit message with the Jira key, for example `DL-21: add login endpoint`.
+- Start every commit message with the Jira key, for example `DLBS-34: add login endpoint`.
 - Every pull request links its Jira card, needs one reviewer, and needs a green CI run.
 - Never commit secrets. Put placeholder values in `.env.example`.
 

@@ -2,6 +2,7 @@
 
 | File or folder | Contents | Owner |
 |---|---|---|
+| `SRS_…pdf`, `SAD_…pdf`, `Test_Plan_…pdf` | The three project deliverables | Whole team |
 | `api-contract.md` | JSON shapes for every endpoint and signatures of in-process functions, agreed on 29 Oct | Everyone, one section each |
 | `deviations.md` | Every change from the submitted SRS, SAD and Test Plan, with the reason | Member 1 (everyone adds lines) |
 | `cicd.md` | The CI/CD pipeline, with a diagram and screenshots (Sprint 2) | Member 3 |

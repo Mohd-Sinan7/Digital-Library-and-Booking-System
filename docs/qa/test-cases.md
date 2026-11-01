@@ -19,6 +19,10 @@
 | TC-15 | Unknown booking ID on borrow/return/cancel | Rejected with 404 | Medium |
 | TC-16 | Reserve a removed book (FR-B1) | Rejected with 409; available copies unchanged | High |
 | TC-17 | Zero-copies reservation via API returns 409 (FR-B9) | Rejected with HTTP 409 conflict and error detail | High |
+| TC-B01 | Borrow sets status and due date, copies unchanged (FR-B2) | Status `borrowed`, due date = today + 14 days, `available_copies` same as after reserve | Critical |
+| TC-B03 | Return restores copy and rejects non-borrowed (FR-B3) | Status `returned`, copies rise by 1; returning reserved/returned booking rejected | Critical |
+| TC-B05 | Cancel restores copy and rejects borrowed (FR-B4) | Status `cancelled`, copies rise by 1; cancelling borrowed booking rejected | Critical |
+| TC-B08 | Counts verified after every action (FR-B5) | `available_copies` correct after reserve, borrow, return, re-reserve, and cancel | Critical |
 
 ## Execution Record (Sprint 1 - 31 Oct 2026)
 
@@ -41,3 +45,12 @@
 | TC-15 | Unknown book / booking ID returns 404 | DLBS-46 | Rushi Eswar (Member 4) | 2026-10-31 | Pass |
 | TC-16 | Reserve removed book rejected (FR-B1) | DLBS-46 | Rushi Eswar (Member 4) | 2026-10-31 | Pass |
 | TC-17 | Reserve with 0 copies returns 409 (FR-B9) | DLBS-46 | Rushi Eswar (Member 4) | 2026-10-31 | Pass |
+
+## Execution Record (Sprint 1 - 01 Nov 2026)
+
+| ID | Test Case Description | Build / Commit | Tester | Execution Date | Status |
+|---|---|---|---|---|---|
+| TC-B01 | Borrow: status, due date, copies unchanged (FR-B2) | DLBS-49 | Rushi Eswar (Member 4) | 2026-11-01 | Pass |
+| TC-B03 | Return: restores copy, rejects non-borrowed (FR-B3) | DLBS-49 | Rushi Eswar (Member 4) | 2026-11-01 | Pass |
+| TC-B05 | Cancel: restores copy, rejects borrowed (FR-B4) | DLBS-49 | Rushi Eswar (Member 4) | 2026-11-01 | Pass |
+| TC-B08 | Counts verified after every action (FR-B5) | DLBS-49 | Rushi Eswar (Member 4) | 2026-11-01 | Pass |

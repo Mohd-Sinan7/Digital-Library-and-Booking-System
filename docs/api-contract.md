@@ -222,7 +222,7 @@ Response `200`:
 ### In-process function: reading.get_history(user_id)
 
 Member 1's recommender calls this Python function directly instead of the REST
-endpoint. It lives in `src/users/reading.py` and is live by 1 Nov.
+endpoint. It lives in `src/users/reading.py` and has been live since 1 Nov.
 
 ```python
 from src.users import reading
@@ -243,11 +243,14 @@ class ReadingRecord:
     updated_at: datetime        # UTC
 
 
-def get_history(user_id: int) -> list[ReadingRecord]:
+def get_history(user_id: int, db: Session | None = None) -> list[ReadingRecord]:
     """Return all of the user's reading records, newest updated_at first."""
 ```
 
 - Returns an empty list for a user with no records, or a `user_id` that does not exist.
+- Pass `db` to reuse your session (as in tests); without it the function opens its own.
+- The records are stored in the `reading_records` table (`ReadingRecordRow` in
+  `src/users/models.py`), one row per user and book.
 - Book details (title, author, genre) are not included. Get them from `catalog.get_books()`.
 - No token is needed: the caller is code in the same app, not an HTTP request.
 

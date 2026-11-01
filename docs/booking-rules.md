@@ -11,6 +11,15 @@ Member 4 owns reservation and loan behaviour. Catalog owns book records; Member 
 | **FR-B9** | Reserving a book with 0 available copies returns 409 and changes nothing. | When `available_copies < 1`, transaction raises `NoCopiesAvailableError` / HTTP 409, rolls back, and leaves copies and bookings untouched. |
 | **NFR-B1** | In a concurrent test exactly one reservation succeeds and available copies never go below 0. | Protected with atomic transactions (`BEGIN IMMEDIATE`) and locking. Verified with multi-threaded concurrent test (`test_nfr_b1_concurrent_reservations_single_copy`). |
 
+## Requirements and Acceptance Criteria (DLBS-49 / Sprint 1)
+
+| Requirement | Acceptance Criteria | Implementation / Verification |
+|---|---|---|
+| **FR-B2** | Status becomes `borrowed`, due date is 14 days after borrowing, available copies unchanged. | `BookingService.borrow_book` sets status to `borrowed` and `due_date = today + 14`. Does NOT modify `available_copies`. Verified by `test_tc_b01_*` and `test_api_borrow_copies_unchanged`. |
+| **FR-B3** | Status becomes `returned` and available copies rise by one; returning a booking that is not borrowed is rejected. | `BookingService.return_book` sets status to `returned`, increments `available_copies + 1`. `ensure_can_return` rejects non-borrowed bookings. Verified by `test_tc_b03_*` and `test_api_return_non_borrowed_returns_409`. |
+| **FR-B4** | Status becomes `cancelled` and available copies rise by one; a borrowed booking cannot be cancelled. | `BookingService.cancel_booking` sets status to `cancelled`, increments `available_copies + 1`. `ensure_can_cancel` rejects borrowed bookings. Verified by `test_tc_b05_*` and `test_api_cancel_borrowed_returns_409`. |
+| **FR-B5** | Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08. | `test_tc_b08_counts_verified_after_every_action` performs reserve → borrow → return → re-reserve → cancel and asserts `available_copies` at each step. |
+
 ## Business rules
 
 | ID | Rule |

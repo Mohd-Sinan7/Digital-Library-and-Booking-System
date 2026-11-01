@@ -2,6 +2,10 @@
 
 Implements reservation, borrowing, return, cancellation, and concurrency protection:
 - FR-B1: Booking created as reserved and available copies drop by 1; removed books rejected.
+- FR-B2: Status becomes borrowed, due date is 14 days after borrowing, copies unchanged.
+- FR-B3: Status becomes returned and available copies rise by one; non-borrowed rejected.
+- FR-B4: Status becomes cancelled and available copies rise by one; borrowed cannot cancel.
+- FR-B5: Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08.
 - FR-B9: Reserving a book with 0 available copies returns conflict/error and changes nothing.
 - NFR-B1: In concurrent reservations, exactly one succeeds and copies never drop below 0.
 """

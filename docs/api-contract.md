@@ -51,15 +51,21 @@ def get_book(book_id: int, user: CurrentUser = Depends(get_current_user)):
 An admin-only helper that returns 403 to members is added with the Roles story by
 31 Oct. Until then, check `user.role == "admin"` yourself.
 
-### Stub tokens (until real login is merged on 1 Nov)
+### Tokens
 
-| Header | You are |
-|---|---|
-| `Authorization: Bearer test-member-token` | User 1, Test Member, role `member` |
-| `Authorization: Bearer test-admin-token` | User 2, Test Admin, role `admin` |
+Real login replaced the stub tokens on 1 Nov. Get a token from
+`POST /api/auth/login` and send it as `Authorization: Bearer <token>`. A missing,
+invalid or expired token gets 401. The token carries the user's id, name, email and
+role, so `get_current_user` needs no database lookup.
 
-Any other token, or no token, gets 401. After 1 Nov, get a real token from
-`POST /api/auth/login`. Your code does not change.
+In tests, make a signed token for any test user without a database:
+
+```python
+from src.users.auth import CurrentUser, create_access_token
+
+member_token = create_access_token(CurrentUser(1, "Test Member", "member@example.com", "member"))
+headers = {"Authorization": f"Bearer {member_token}"}
+```
 
 ---
 

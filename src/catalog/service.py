@@ -131,3 +131,58 @@ def change_available_copies(book_id: int, delta: int, db: Session) -> dict:
     book.available_copies = new
     db.flush()
     return _availability(book)
+
+
+class DuplicateIsbnError(ValueError):
+    """Another book already has this ISBN (HTTP 409)."""
+
+
+class CopiesBelowZeroError(ValueError):
+    """A total_copies change would make available_copies negative (HTTP 409)."""
+
+
+def _isbn_taken(s: Session, isbn: str, except_id: int | None = None) -> bool:
+    query = select(Book.id).where(Book.isbn == isbn)
+    if except_id is not None:
+        query = query.where(Book.id != except_id)
+    return s.scalar(query) is not None
+
+
+def create_book(data: dict, db: Session) -> dict:
+    """Add a book (FR-C1). available_copies starts equal to total_copies."""
+    if _isbn_taken(db, data["isbn"]):
+        raise DuplicateIsbnError("ISBN already exists")
+    book = Book(**data)
+    db.add(book)
+    db.commit()
+    return to_dict(book)
+
+
+def update_book(book_id: int, changes: dict, db: Session) -> dict | None:
+    """Edit a book (FR-C2). None if missing or deleted. Nothing changes on error."""
+    book = db.get(Book, book_id)
+    if book is None or book.is_deleted:
+        return None
+    if "isbn" in changes and _isbn_taken(db, changes["isbn"], except_id=book_id):
+        raise DuplicateIsbnError("ISBN already exists")
+    if "total_copies" in changes:
+        available = book.available_copies + changes["total_copies"] - book.total_copies
+        if available < 0:
+            raise CopiesBelowZeroError(
+                "Cannot reduce total_copies below copies currently on loan"
+            )
+        book.available_copies = available
+    for field, value in changes.items():
+        setattr(book, field, value)
+    db.commit()
+    return to_dict(book)
+
+
+def delete_book(book_id: int, db: Session) -> bool:
+    """Soft delete (FR-C3): the row and its booking history stay. False if missing."""
+    book = db.get(Book, book_id)
+    if book is None or book.is_deleted:
+        return False
+    book.is_deleted = True
+    db.commit()
+    return True

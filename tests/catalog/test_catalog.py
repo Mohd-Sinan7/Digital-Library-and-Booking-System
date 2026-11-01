@@ -181,6 +181,6 @@ def test_list_endpoint_defaults_and_search(client, session):
     assert client.get("/api/books", params={"q": "Book 07"}).json()["total"] == 1
 
 
-@pytest.mark.parametrize("params", [{"page": 0}, {"page_size": 0}, {"page_size": 101}])
+@pytest.mark.parametrize("params", [{"page": 0}, {"page_size": 0}, {"page_size": 51}])
 def test_list_endpoint_rejects_bad_paging(client, params):
     assert client.get("/api/books", params=params).status_code == 422

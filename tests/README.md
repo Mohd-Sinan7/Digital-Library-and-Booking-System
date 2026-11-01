@@ -6,5 +6,5 @@ Unit and integration tests, run with `pytest` (or `python -m pytest`) from the r
 - Name files `test_<what>.py` and functions `test_<behaviour>`.
 - Each module needs at least 70% unit-test coverage. Check it with
   `python -m pytest --cov=src --cov-report=term-missing`.
-- Use FastAPI's `TestClient` for endpoint tests. Until real login is merged (1 Nov),
-  send the stub tokens listed in `docs/api-contract.md`.
+- Use FastAPI's `TestClient` for endpoint tests. Make a bearer token for a test user
+  with `create_access_token` from `src/users/auth.py` (see `docs/api-contract.md`).

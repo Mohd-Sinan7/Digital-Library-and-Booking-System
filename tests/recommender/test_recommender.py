@@ -19,7 +19,13 @@ from src.recommender import (
     set_recommender,
 )
 from src.recommender.routes import get_db, router
-from src.users.auth import STUB_ADMIN_TOKEN, STUB_MEMBER_TOKEN
+from src.users.auth import CurrentUser, create_access_token
+
+# Real signed tokens for test users 1 and 2 (login issues JWTs since 1 Nov).
+STUB_MEMBER_TOKEN = create_access_token(
+    CurrentUser(1, "Test Member", "member@example.com", "member")
+)
+STUB_ADMIN_TOKEN = create_access_token(CurrentUser(2, "Test Admin", "admin@example.com", "admin"))
 
 
 @pytest.fixture

@@ -20,7 +20,12 @@ from src.bookings.rules import (
     ensure_can_return,
 )
 from src.bookings.service import BookingService
-from src.users.auth import STUB_MEMBER_TOKEN
+from src.users.auth import CurrentUser, create_access_token
+
+# Real signed token for test user 1 (login issues JWTs since 1 Nov).
+STUB_MEMBER_TOKEN = create_access_token(
+    CurrentUser(1, "Test Member", "member@example.com", "member")
+)
 
 
 def test_reservation_allowed_with_copy_and_capacity():

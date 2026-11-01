@@ -1,8 +1,9 @@
-"""Authentication helper shared by every module.
+"""Authentication helpers shared by every module.
 
 POST /api/auth/login issues a signed JWT that carries the user's id, name, email and
 role. get_current_user() checks the token on every protected endpoint and returns
-that CurrentUser, so other modules need no database lookup (NFR-U2).
+that CurrentUser, so other modules need no database lookup (NFR-U2). require_admin()
+does the same and also rejects members with 403 (FR-U3).
 """
 
 import os
@@ -10,7 +11,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
+
+from src.users.models import ADMIN
 
 # Set JWT_SECRET in .env (at least 32 characters). The default is for local use only.
 JWT_SECRET = os.getenv("JWT_SECRET", "local-development-secret-not-for-production")
@@ -61,3 +64,17 @@ def get_current_user(authorization: str | None = Header(default=None)) -> Curren
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
+
+
+def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Return the user if they are an admin, otherwise reject with 403 (FR-U3).
+
+    No token still gets 401 from get_current_user(). Use it on one endpoint with
+    `admin: CurrentUser = Depends(require_admin)`, or on a whole router with
+    `APIRouter(dependencies=[Depends(require_admin)])`.
+    """
+    if user.role != ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+        )
+    return user

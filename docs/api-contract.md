@@ -249,13 +249,154 @@ def get_history(user_id: int) -> list[ReadingRecord]:
 
 ## Book Catalog (Member 2)
 
-To be filled in by Member 2 on 29 Oct. Already agreed in the member plans:
+### Book object
 
-- The book JSON includes `page_count` (Member 3 uses it for progress) and
-  `available_copies` (only Member 4's booking code changes it).
-- `GET /api/books?q=&genre=&available=&page=` for search, filter and list
-- `GET /api/books/{id}`; `POST`, `PUT` and `DELETE /api/books/{id}` for admins
-- `GET /api/books/{id}/availability` returns `available_copies`
+Every catalog endpoint and in-process function uses this shape:
+
+```json
+{
+  "id": 1,
+  "title": "Pride and Prejudice",
+  "author": "Jane Austen",
+  "isbn": "9790000000018",
+  "genre": "Romance",
+  "description": "A witty story of manners and marriage in Regency England.",
+  "year": 1813,
+  "page_count": 432,
+  "cover_url": "https://covers.example.org/1.jpg",
+  "total_copies": 4,
+  "available_copies": 2,
+  "created_at": "2026-10-29T08:30:00Z"
+}
+```
+
+- `id` is the shared `book_id` used by every module. `data/books_sample.csv` uses the same ids.
+- `page_count` is always present (Member 3 uses it for progress).
+- `available_copies` is always present. Only Member 4's booking code changes it, through
+  `catalog.change_available_copies()` below.
+- `is_deleted` is never returned. A soft-deleted book behaves as "not found".
+
+### Validation (FR-C1, NFR-C2)
+
+| Field | Required on create | Rule |
+|---|---|---|
+| `title`, `author` | yes | 1 to 255 characters, not blank |
+| `isbn` | yes | Valid ISBN-10 or ISBN-13 check digit. Hyphens and spaces are removed before saving. Unique |
+| `genre` | yes | 1 to 50 characters |
+| `page_count` | yes | Integer, at least 1 |
+| `total_copies` | yes | Integer, at least 0 |
+| `description` | no | Up to 2000 characters, default `""` |
+| `year` | no | Integer, not in the future (negative means BCE) |
+| `cover_url` | no | `http` or `https` URL, default `null` |
+
+Clients never send `id`, `available_copies`, `created_at` or `is_deleted`.
+
+### Who may call what (FR-C8)
+
+- `GET` endpoints are public: no token needed (FR-C4 to FR-C6 say "any user").
+- `POST`, `PUT` and `DELETE` are admin only: no token gets `401`, a `member` token gets `403`
+  with `{"detail": "Admin privileges required"}`.
+
+### GET /api/books
+
+Search, filter and list (FR-C4, FR-C5, FR-C7). Soft-deleted books are never returned.
+
+| Query | Default | Meaning |
+|---|---|---|
+| `q` | none | Case-insensitive match on part of the title or author, or the exact ISBN (hyphens ignored) |
+| `genre` | none | Exact genre, case-insensitive |
+| `available` | none | `true`: `available_copies > 0`. `false`: `available_copies = 0` |
+| `page` | 1 | Page number, at least 1 |
+| `page_size` | 20 | Books per page, 1 to 50 |
+
+Sorted by `title`, then `id`.
+
+Response `200`:
+
+```json
+{"items": [ /* book objects */ ], "page": 1, "page_size": 20, "total": 57, "total_pages": 3}
+```
+
+No matches, or a page past the end: `200` with `"items": []`. Errors: `422` for
+`page` below 1 or `page_size` outside 1 to 50.
+
+### GET /api/books/{id}
+
+Book detail page (FR-C6). Response `200`: a book object. Errors: `404` missing or deleted.
+
+### POST /api/books (admin)
+
+Adds a book (FR-C1). Request: the fields in the validation table. Response `201`: the
+book object, with `available_copies` equal to `total_copies`.
+
+Errors: `401`, `403`, `409` ISBN already exists, `422` missing or invalid field.
+
+### PUT /api/books/{id} (admin)
+
+Edits a book (FR-C2). Send only the fields you want to change.
+
+Changing `total_copies` changes `available_copies` by the same amount:
+`new available = old available + (new total - old total)`. If that would go below 0,
+the request is rejected with `409` and nothing changes.
+
+Example: total 4, available 1 (3 on loan). `{"total_copies": 6}` gives total 6,
+available 3. `{"total_copies": 2}` gets `409`.
+
+Response `200`: the updated book. Errors: `401`, `403`, `404`, `409` (ISBN taken or
+copies below 0), `422`.
+
+### DELETE /api/books/{id} (admin)
+
+Soft delete (FR-C3): sets `is_deleted`, keeps the row and its booking history. The book
+disappears from search and recommendations and cannot be reserved, but existing
+bookings can still be returned. Response `204`. Errors: `401`, `403`, `404` missing or
+already deleted.
+
+### GET /api/books/{id}/availability
+
+Response `200`:
+
+```json
+{"book_id": 1, "total_copies": 4, "available_copies": 2, "is_available": true}
+```
+
+Errors: `404` missing or deleted.
+
+### In-process functions: catalog
+
+Other modules call these Python functions directly instead of the REST endpoints. They
+live in `src/catalog/` and are live by 1 Nov. No token is needed. They return plain
+dicts in the shapes above.
+
+```python
+from src import catalog
+
+catalog.get_books(q=None, genre=None, available=None, page=1, page_size=None) -> dict
+# Same filters and return shape as GET /api/books. Excludes deleted books.
+# page_size=None returns every matching book on one page (for the recommender).
+
+catalog.get_book(book_id: int, include_deleted: bool = False) -> dict | None
+# A book object, or None if it does not exist (or is deleted, unless include_deleted=True).
+# With include_deleted=True the dict also has "is_deleted".
+
+catalog.get_availability(book_id: int) -> dict | None
+# {"book_id": 1, "total_copies": 4, "available_copies": 2,
+#  "is_available": True, "is_deleted": False}
+# is_available is False for deleted books. Still works for deleted books, so returns
+# keep working. None only if the book never existed.
+```
+
+### Changing available copies (Member 4 to confirm)
+
+Only the booking module calls this:
+
+```python
+catalog.change_available_copies(book_id: int, delta: int, db: Session) -> dict
+# delta = -1 to reserve or borrow, +1 to cancel or return.
+# Runs inside the caller's session, so the booking and the copy count commit together.
+# Raises ValueError if the result would be below 0 or above total_copies,
+# or if delta < 0 on a deleted book. Returns the new availability dict.
+```
 
 ## Booking and Borrowing (Member 4)
 

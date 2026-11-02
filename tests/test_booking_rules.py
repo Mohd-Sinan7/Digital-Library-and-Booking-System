@@ -532,3 +532,35 @@ def test_api_cancel_borrowed_returns_409(api_client):
         f"/api/bookings/{booking_id}", headers=headers
     )
     assert cancel_res.status_code == 409
+
+
+def test_tc_b02_second_member_reserves_same_book_rejected():
+    """TC-B02 / FR-B9: Second member reserves book with 0 copies (rejected)."""
+    service = BookingService()
+    service.seed_book(book_id=501, title="Single Copy Book", available_copies=1)
+
+    # Member 1 reserves successfully
+    b1 = service.reserve_book(user_id=1, book_id=501)
+    assert b1.status == BookingStatus.RESERVED
+    assert service.get_book(501)["available_copies"] == 0
+
+    # Member 2 attempts to reserve the same book -> rejected with clear message
+    with pytest.raises(NoCopiesAvailableError, match="No copies"):
+        service.reserve_book(user_id=2, book_id=501)
+
+    assert service.get_book(501)["available_copies"] == 0
+
+
+def test_tc_b04_member_tries_sixth_active_booking_rejected():
+    """TC-B04 / FR-B8: Member tries a sixth active booking -> rejected."""
+    service = BookingService()
+    for book_id in range(601, 607):
+        service.seed_book(book_id=book_id, title=f"Book {book_id}", available_copies=5)
+
+    # Member creates 5 active bookings
+    for book_id in range(601, 606):
+        service.reserve_book(user_id=10, book_id=book_id)
+
+    # Member tries 6th active booking -> rejected
+    with pytest.raises(MaxActiveBookingsLimitError, match="at most 5 active bookings"):
+        service.reserve_book(user_id=10, book_id=606)

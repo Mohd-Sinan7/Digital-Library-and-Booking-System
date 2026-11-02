@@ -7,6 +7,7 @@ Implements reservation, borrowing, return, cancellation, and concurrency protect
 - FR-B4: Status becomes cancelled and available copies rise by one; borrowed cannot cancel.
 - FR-B5: Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08.
 - FR-B9: Reserving a book with 0 available copies returns conflict/error and changes nothing.
+- FR-B10: Hold expires after 2 days; copy becomes available again.
 - NFR-B1: In concurrent reservations, exactly one succeeds and copies never drop below 0.
 """
 
@@ -23,8 +24,10 @@ from .rules import (
     MaxActiveBookingsLimitError,
     NoCopiesAvailableError,
     calculate_due_date,
+    calculate_hold_expiry,
     ensure_can_borrow,
     ensure_can_cancel,
+    ensure_can_expire,
     ensure_can_reserve,
     ensure_can_return,
 )
@@ -63,10 +66,15 @@ class BookingService:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
                     book_id INTEGER NOT NULL,
-                    status TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(
+                        status IN ('reserved', 'borrowed', 'returned', 'cancelled', 'expired')
+                    ),
+                    reserved_at TEXT NOT NULL,
+                    expires_at TEXT,
+                    borrowed_at TEXT,
                     due_date TEXT,
                     returned_at TEXT,
+                    created_at TEXT,
                     FOREIGN KEY(book_id) REFERENCES books(id)
                 )
                 """
@@ -178,12 +186,23 @@ class BookingService:
 
                 today = date.today()
                 today_str = today.isoformat()
+                expires = calculate_hold_expiry(today)
+                expires_str = expires.isoformat()
                 cursor.execute(
                     """
-                    INSERT INTO bookings (user_id, book_id, status, created_at)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO bookings (
+                        user_id, book_id, status, reserved_at, expires_at, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (user_id, book_id, BookingStatus.RESERVED.value, today_str),
+                    (
+                        user_id,
+                        book_id,
+                        BookingStatus.RESERVED.value,
+                        today_str,
+                        expires_str,
+                        today_str,
+                    ),
                 )
                 booking_id = cursor.lastrowid
                 self._conn.commit()
@@ -193,6 +212,8 @@ class BookingService:
                     user_id=user_id,
                     book_id=book_id,
                     status=BookingStatus.RESERVED,
+                    reserved_at=today,
+                    expires_at=expires,
                     created_at=today,
                 )
             except Exception:
@@ -225,8 +246,13 @@ class BookingService:
                 borrow_date = date.today()
                 due = calculate_due_date(borrow_date)
                 cursor.execute(
-                    "UPDATE bookings SET status = ?, due_date = ? WHERE id = ?",
-                    (BookingStatus.BORROWED.value, due.isoformat(), booking_id),
+                    "UPDATE bookings SET status = ?, borrowed_at = ?, due_date = ? WHERE id = ?",
+                    (
+                        BookingStatus.BORROWED.value,
+                        borrow_date.isoformat(),
+                        due.isoformat(),
+                        booking_id,
+                    ),
                 )
                 self._conn.commit()
 
@@ -235,6 +261,8 @@ class BookingService:
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.BORROWED,
+                    reserved_at=date.fromisoformat(created_at_str),
+                    borrowed_at=borrow_date,
                     created_at=date.fromisoformat(created_at_str),
                     due_date=due,
                 )
@@ -281,6 +309,7 @@ class BookingService:
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.RETURNED,
+                    reserved_at=date.fromisoformat(created_at_str),
                     created_at=date.fromisoformat(created_at_str),
                     due_date=date.fromisoformat(due_date_str) if due_date_str else None,
                     returned_at=return_date,
@@ -327,6 +356,49 @@ class BookingService:
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.CANCELLED,
+                    reserved_at=date.fromisoformat(created_at_str),
+                    created_at=date.fromisoformat(created_at_str),
+                )
+            except Exception:
+                self._conn.rollback()
+                raise
+
+    def expire_booking(self, booking_id: int) -> Booking:
+        """Expire a reservation past 2 days and restore available copy (FR-B10)."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("BEGIN IMMEDIATE")
+            try:
+                cursor.execute(
+                    """
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    FROM bookings WHERE id = ?
+                    """,
+                    (booking_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise BookingRuleError(f"Booking {booking_id} not found.")
+
+                b_id, b_user_id, b_book_id, status_str, created_at_str, _, _ = row
+                ensure_can_expire(status_str)
+
+                cursor.execute(
+                    "UPDATE bookings SET status = ? WHERE id = ?",
+                    (BookingStatus.EXPIRED.value, booking_id),
+                )
+                cursor.execute(
+                    "UPDATE books SET available_copies = available_copies + 1 WHERE id = ?",
+                    (b_book_id,),
+                )
+                self._conn.commit()
+
+                return Booking(
+                    id=b_id,
+                    user_id=b_user_id,
+                    book_id=b_book_id,
+                    status=BookingStatus.EXPIRED,
+                    reserved_at=date.fromisoformat(created_at_str),
                     created_at=date.fromisoformat(created_at_str),
                 )
             except Exception:
@@ -353,6 +425,7 @@ class BookingService:
                     user_id=row[1],
                     book_id=row[2],
                     status=BookingStatus(row[3]),
+                    reserved_at=date.fromisoformat(row[4]),
                     created_at=date.fromisoformat(row[4]),
                     due_date=date.fromisoformat(row[5]) if row[5] else None,
                     returned_at=date.fromisoformat(row[6]) if row[6] else None,

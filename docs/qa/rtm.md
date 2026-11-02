@@ -8,6 +8,9 @@
 | FR-B4 | Status becomes cancelled and available copies rise by one; a borrowed booking cannot be cancelled | TC-B05 | Passed |
 | FR-B5 | Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08 | TC-B01, TC-B03, TC-B05, TC-B08 | Passed |
 | FR-B9 / BR-02 | Copy must be available; 0 copies returns 409 and changes nothing | TC-01, TC-02, TC-17 | Passed |
+| FR-B10 / DLBS-45 | Reservation not borrowed within 2 days expires and restores copy | test_dlbs_45_hold_expiry_calculation, test_dlbs_45_service_expire_booking_restores_copy | Passed |
+| DLBS-45 Table | Bookings table schema (id, user_id, book_id, status, reserved_at, expires_at, borrowed_at, due_date, returned_at) | test_dlbs_45_bookings_table_schema | Passed |
+| DLBS-45 States | Strict state transitions (reserved->borrowed, borrowed->returned, reserved->cancelled, reserved->expired); all others rejected | test_dlbs_45_allowed_state_transitions, test_dlbs_45_rejected_state_transitions | Passed |
 | NFR-B1 / BR-12| In concurrent test exactly one reservation succeeds; copies never < 0 | TC-12 | Passed |
 | BR-03 | Maximum five active bookings | TC-04 | Passed |
 | BR-04 | Booking belongs to member and book | TC-01, TC-13, TC-14 | Passed |

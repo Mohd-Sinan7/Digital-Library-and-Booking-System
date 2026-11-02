@@ -1,14 +1,35 @@
-"""Pure business rules. Persistence and catalog updates belong to integrations."""
+"""Pure business rules for bookings and state transitions (DLBS-45).
+
+State rules (DLBS-45 / SRS FR-B1 through FR-B10):
+- reserved to borrowed
+- borrowed to returned
+- reserved to cancelled
+- reserved to expired (after 2 days)
+Any other transition is rejected.
+"""
 
 from datetime import date, timedelta
 
 MAX_ACTIVE_BOOKINGS = 5
 LOAN_DAYS = 14
+HOLD_DAYS = 2  # 2 days reservation hold expiry (FR-B10)
 ACTIVE_STATUSES = {"reserved", "borrowed"}
+
+VALID_TRANSITIONS: dict[str, set[str]] = {
+    "reserved": {"borrowed", "cancelled", "expired"},
+    "borrowed": {"returned"},
+    "returned": set(),
+    "cancelled": set(),
+    "expired": set(),
+}
 
 
 class BookingRuleError(ValueError):
     """Raised when a booking action violates a business rule."""
+
+
+class InvalidStateTransitionError(BookingRuleError):
+    """Raised when an invalid booking state transition is attempted (DLBS-45)."""
 
 
 class NoCopiesAvailableError(BookingRuleError):
@@ -25,6 +46,25 @@ class BookNotFoundError(BookingRuleError):
 
 class MaxActiveBookingsLimitError(BookingRuleError):
     """Raised when a member already has 5 active bookings (BR-03, HTTP 409)."""
+
+
+def validate_status_transition(current_status: str, new_status: str) -> None:
+    """Validate state transition according to DLBS-45 state rules.
+
+    Allowed transitions:
+    - reserved -> borrowed
+    - borrowed -> returned
+    - reserved -> cancelled
+    - reserved -> expired (after 2 days)
+
+    Any other transition is rejected.
+    """
+    allowed = VALID_TRANSITIONS.get(str(current_status))
+    if allowed is None or str(new_status) not in allowed:
+        raise InvalidStateTransitionError(
+            f"Invalid state transition: cannot transition booking from '{current_status}' to "
+            f"'{new_status}'."
+        )
 
 
 def ensure_can_reserve(
@@ -47,19 +87,30 @@ def ensure_can_reserve(
 
 
 def ensure_can_borrow(status: str) -> None:
-    if status != "reserved":
-        raise BookingRuleError("Only a reserved booking can be borrowed.")
+    """Enforce valid transition into borrowed (only from reserved)."""
+    validate_status_transition(status, "borrowed")
 
 
 def calculate_due_date(borrowed_on: date) -> date:
+    """Borrowing sets the due date to 14 calendar days after borrowing (FR-B2)."""
     return borrowed_on + timedelta(days=LOAN_DAYS)
 
 
+def calculate_hold_expiry(reserved_on: date) -> date:
+    """A reservation not borrowed within 2 days expires (FR-B10)."""
+    return reserved_on + timedelta(days=HOLD_DAYS)
+
+
 def ensure_can_cancel(status: str) -> None:
-    if status != "reserved":
-        raise BookingRuleError("Only a reserved booking can be cancelled.")
+    """Enforce valid transition into cancelled (only from reserved)."""
+    validate_status_transition(status, "cancelled")
 
 
 def ensure_can_return(status: str) -> None:
-    if status != "borrowed":
-        raise BookingRuleError("Only a borrowed booking can be returned.")
+    """Enforce valid transition into returned (only from borrowed)."""
+    validate_status_transition(status, "returned")
+
+
+def ensure_can_expire(status: str) -> None:
+    """Enforce valid transition into expired (only from reserved)."""
+    validate_status_transition(status, "expired")

@@ -3,6 +3,15 @@
 ## Scope
 Member 4 owns reservation and loan behaviour. Catalog owns book records; Member 3 owns users and authentication. Booking code must use their shared interfaces rather than create duplicate user, book, or availability tables.
 
+## Requirements and Acceptance Criteria (DLBS-45 / Sprint 1)
+
+| Requirement | Acceptance Criteria | Implementation / Verification |
+|---|---|---|
+| **Bookings Table Design** | Design table with columns: `id`, `user_id`, `book_id`, `status` (`reserved`, `borrowed`, `returned`, `cancelled`, `expired`), `reserved_at`, `expires_at`, `borrowed_at`, `due_date`, `returned_at`. | Implemented in `src/bookings/models.py` (`BookingRow`, `BookingTable`, and `Booking` dataclass) with SQLite/SQLAlchemy schema and check constraints. Verified by `test_dlbs_45_bookings_table_schema`. |
+| **State Rules** | Strict state machine: `reserved -> borrowed`, `borrowed -> returned`, `reserved -> cancelled`, `reserved -> expired` (after 2 days). Any other transition is rejected. | Implemented in `src/bookings/rules.py` via `validate_status_transition`, raising `InvalidStateTransitionError`. Verified by `test_dlbs_45_allowed_state_transitions` and `test_dlbs_45_rejected_state_transitions`. |
+| **Hold Expiry** | A reservation that is not borrowed within 2 days expires and restores the available copy. | Implemented via `calculate_hold_expiry` (2 days) and `BookingService.expire_booking`. Verified by `test_dlbs_45_hold_expiry_calculation` and `test_dlbs_45_service_expire_booking_restores_copy`. |
+| **State Diagram** | State transition diagram added to `docs/`. | Visualized via Mermaid state diagram and ASCII lifecycle diagram below. |
+
 ## Requirements and Acceptance Criteria (DLBS-46 / Sprint 1)
 
 | Requirement | Acceptance Criteria | Implementation / Verification |
@@ -20,7 +29,85 @@ Member 4 owns reservation and loan behaviour. Catalog owns book records; Member 
 | **FR-B4** | Status becomes `cancelled` and available copies rise by one; a borrowed booking cannot be cancelled. | `BookingService.cancel_booking` sets status to `cancelled`, increments `available_copies + 1`. `ensure_can_cancel` rejects borrowed bookings. Verified by `test_tc_b05_*` and `test_api_cancel_borrowed_returns_409`. |
 | **FR-B5** | Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08. | `test_tc_b08_counts_verified_after_every_action` performs reserve → borrow → return → re-reserve → cancel and asserts `available_copies` at each step. |
 
-## Business rules
+## Bookings Table Design (DLBS-45)
+
+The `bookings` table manages reservation and loan lifecycles:
+
+| Column Name | SQL Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | `INTEGER` | `NOT NULL` | Auto-increment PK | Primary key |
+| `user_id` | `INTEGER` | `NOT NULL` | — | Foreign key to `users.id` (ON DELETE CASCADE) |
+| `book_id` | `INTEGER` | `NOT NULL` | — | Foreign key to `books.id` |
+| `status` | `VARCHAR(20)` | `NOT NULL` | `'reserved'` | Current status (`reserved`, `borrowed`, `returned`, `cancelled`, `expired`) |
+| `reserved_at`| `DATETIME` | `NOT NULL` | Current UTC | Timestamp when reservation was created |
+| `expires_at` | `DATETIME` | `NULL` | +2 days | Timestamp when reservation hold expires if unborrowed |
+| `borrowed_at`| `DATETIME` | `NULL` | — | Timestamp when loan began |
+| `due_date` | `DATE` | `NULL` | +14 days | Due date for return |
+| `returned_at`| `DATETIME` | `NULL` | — | Timestamp when book was returned |
+
+Table Constraints:
+- `CHECK (status IN ('reserved', 'borrowed', 'returned', 'cancelled', 'expired'))`
+
+## State Transition Rules (DLBS-45)
+
+```
+                    +--------------------+
+                    |    (New Booking)   |
+                    +--------------------+
+                               |
+                               | [reserve]
+                               v
+                    +--------------------+
+         +--------> |      RESERVED      | ---------+
+         |          +--------------------+          |
+         |                     |                    |
+[after 2 days]                 | [borrow]       [cancel]
+         |                     v                    |
+         |          +--------------------+          |
+         |          |      BORROWED      |          |
+         |          +--------------------+          |
+         |                     |                    |
+         |                     | [return]           |
+         v                     v                    v
++-----------------+ +--------------------+ +-----------------+
+|     EXPIRED     | |      RETURNED      | |    CANCELLED    |
++-----------------+ +--------------------+ +-----------------+
+ (Terminal state)      (Terminal state)     (Terminal state)
+```
+
+### State Machine Transition Matrix
+
+| From State | To State | Trigger | Copy Count Impact | Allowed? |
+|---|---|---|---|---|
+| `[*] (None)` | `reserved` | `reserve_book` (FR-B1) | Decrement by 1 (`available_copies - 1`) | **Yes** |
+| `reserved` | `borrowed` | `borrow_book` (FR-B2) | None (copies unchanged) | **Yes** |
+| `reserved` | `cancelled` | `cancel_booking` (FR-B4) | Increment by 1 (`available_copies + 1`) | **Yes** |
+| `reserved` | `expired` | `expire_booking` (FR-B10) | Increment by 1 (`available_copies + 1`) | **Yes** (after 2 days) |
+| `borrowed` | `returned` | `return_book` (FR-B3) | Increment by 1 (`available_copies + 1`) | **Yes** |
+| `reserved` | `returned` | Direct return attempt | — | **No** (Rejected) |
+| `borrowed` | `cancelled` | Direct cancel attempt | — | **No** (Rejected) |
+| `borrowed` | `expired` | Expire attempt on loan | — | **No** (Rejected) |
+| `returned` | *Any* | Re-activation attempt | — | **No** (Terminal) |
+| `cancelled` | *Any* | Re-activation attempt | — | **No** (Terminal) |
+| `expired` | *Any* | Re-activation attempt | — | **No** (Terminal) |
+
+### Mermaid State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> reserved: reserve_book (FR-B1, available_copies - 1)
+    reserved --> borrowed: borrow_book (FR-B2, copies unchanged, due_date = today + 14)
+    reserved --> cancelled: cancel_booking (FR-B4, available_copies + 1)
+    reserved --> expired: 2 days elapsed without borrow (FR-B10, available_copies + 1)
+    borrowed --> returned: return_book (FR-B3, available_copies + 1)
+    borrowed --> overdue: due_date < today (FR-B6 flag)
+    overdue --> returned: return_book (FR-B3, available_copies + 1)
+    returned --> [*]
+    cancelled --> [*]
+    expired --> [*]
+```
+
+## Business Rules
 
 | ID | Rule |
 |---|---|
@@ -38,16 +125,6 @@ Member 4 owns reservation and loan behaviour. Catalog owns book records; Member 
 | BR-12 | Concurrent requests for the final copy must not create two successful reservations. |
 | BR-13 | Protected booking endpoints require the shared CurrentUser dependency. |
 
-## Status lifecycle
-
-`reserved -> borrowed -> returned`
-
-`reserved -> cancelled`
-
-`reserved -> expired` (if reservation expiry is adopted by the team; expiry duration must be agreed before implementation).
-
-No transition from `returned`, `cancelled` or `expired` back to an active state.
-
 ## Concurrency and Transaction Safety Strategy
 
 To satisfy **NFR-B1**, **FR-B1**, and **FR-B9**:
@@ -56,7 +133,7 @@ To satisfy **NFR-B1**, **FR-B1**, and **FR-B9**:
 - `UPDATE books SET available_copies = available_copies - 1 WHERE id = ? AND available_copies > 0` verifies that only positive stock is decremented.
 - Any business rule violation triggers an immediate `ROLLBACK`, guaranteeing that availability counts and booking records remain strictly unchanged.
 
-## Integration agreements
+## Integration Agreements
 
 - User IDs and authentication come from `src/users/auth.py` (`CurrentUser`).
 - Book IDs and `available_copies` come from Member 2's catalog.

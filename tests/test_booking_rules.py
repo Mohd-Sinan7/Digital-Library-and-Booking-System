@@ -5,19 +5,23 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from src.bookings.models import Booking, BookingStatus
+from src.bookings.models import Booking, BookingRow, BookingStatus, BookingTable
 from src.bookings.routes import router as bookings_router
 from src.bookings.routes import set_booking_service
 from src.bookings.rules import (
     BookingRuleError,
     BookRemovedError,
+    InvalidStateTransitionError,
     MaxActiveBookingsLimitError,
     NoCopiesAvailableError,
     calculate_due_date,
+    calculate_hold_expiry,
     ensure_can_borrow,
     ensure_can_cancel,
+    ensure_can_expire,
     ensure_can_reserve,
     ensure_can_return,
+    validate_status_transition,
 )
 from src.bookings.service import BookingService
 from src.users.auth import CurrentUser, create_access_token
@@ -532,6 +536,113 @@ def test_api_cancel_borrowed_returns_409(api_client):
         f"/api/bookings/{booking_id}", headers=headers
     )
     assert cancel_res.status_code == 409
+
+
+# =========================================================================
+# Acceptance Criteria Tests for Ticket DLBS-45: Bookings table & state rules
+# =========================================================================
+
+
+def test_dlbs_45_bookings_table_schema():
+    """DLBS-45: Design the bookings table:
+    id, user_id, book_id, status (reserved, borrowed, returned, cancelled, expired),
+    reserved_at, expires_at, borrowed_at, due_date, returned_at.
+    """
+    from sqlalchemy import inspect
+
+    assert BookingRow is BookingTable
+    mapper = inspect(BookingRow)
+    column_names = {col.key for col in mapper.columns}
+    expected_columns = {
+        "id",
+        "user_id",
+        "book_id",
+        "status",
+        "reserved_at",
+        "expires_at",
+        "borrowed_at",
+        "due_date",
+        "returned_at",
+    }
+    assert expected_columns.issubset(column_names)
+    assert mapper.primary_key[0].name == "id"
+    assert BookingRow.__tablename__ == "bookings"
+
+
+def test_dlbs_45_allowed_state_transitions():
+    """DLBS-45: State rules before coding:
+    - reserved to borrowed
+    - borrowed to returned
+    - reserved to cancelled
+    - reserved to expired (after 2 days)
+    """
+    # reserved -> borrowed
+    validate_status_transition("reserved", "borrowed")
+    ensure_can_borrow("reserved")
+
+    # borrowed -> returned
+    validate_status_transition("borrowed", "returned")
+    ensure_can_return("borrowed")
+
+    # reserved -> cancelled
+    validate_status_transition("reserved", "cancelled")
+    ensure_can_cancel("reserved")
+
+    # reserved -> expired
+    validate_status_transition("reserved", "expired")
+    ensure_can_expire("reserved")
+
+
+def test_dlbs_45_rejected_state_transitions():
+    """DLBS-45: Any other transition is rejected."""
+    invalid_transitions = [
+        ("reserved", "returned"),
+        ("borrowed", "reserved"),
+        ("borrowed", "cancelled"),
+        ("borrowed", "expired"),
+        ("returned", "reserved"),
+        ("returned", "borrowed"),
+        ("returned", "cancelled"),
+        ("returned", "expired"),
+        ("cancelled", "reserved"),
+        ("cancelled", "borrowed"),
+        ("cancelled", "returned"),
+        ("cancelled", "expired"),
+        ("expired", "reserved"),
+        ("expired", "borrowed"),
+        ("expired", "returned"),
+        ("expired", "cancelled"),
+        ("unknown_status", "borrowed"),
+        ("reserved", "unknown_status"),
+    ]
+    for current, target in invalid_transitions:
+        with pytest.raises(InvalidStateTransitionError):
+            validate_status_transition(current, target)
+
+
+def test_dlbs_45_hold_expiry_calculation():
+    """DLBS-45 / FR-B10: reserved to expired after 2 days."""
+    reserved_date = date(2026, 11, 2)
+    expiry_date = calculate_hold_expiry(reserved_date)
+    assert expiry_date == date(2026, 11, 4)
+
+
+def test_dlbs_45_service_expire_booking_restores_copy():
+    """DLBS-45 / FR-B10: Expiring a reservation marks it expired and restores available copy."""
+    service = BookingService()
+    service.seed_book(book_id=401, title="State Rules in Practice", available_copies=2)
+
+    booking = service.reserve_book(user_id=1, book_id=401)
+    assert booking.status == BookingStatus.RESERVED
+    assert service.get_book(401)["available_copies"] == 1
+
+    expired = service.expire_booking(booking.id)
+    assert expired.status == BookingStatus.EXPIRED
+    assert service.get_book(401)["available_copies"] == 2
+
+    # Expiring an already expired booking must be rejected
+    with pytest.raises(BookingRuleError):
+        service.expire_booking(booking.id)
 
 
 def test_tc_b02_second_member_reserves_same_book_rejected():

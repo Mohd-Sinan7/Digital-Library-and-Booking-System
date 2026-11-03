@@ -31,6 +31,9 @@ def test_health():
 @pytest.mark.parametrize("path", [
     "/api/auth/register",
     "/api/auth/login",
+    "/api/reading/status",
+    "/api/reading/progress",
+    "/api/reading/history",
     "/api/books",
     "/api/bookings",
     "/api/recommendations/me",

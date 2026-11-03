@@ -28,6 +28,7 @@
 | **TC-B15** | BR-13 | Client has no `Authorization: Bearer <token>` header. | Send `POST /api/bookings` with valid book payload. | Request rejected with HTTP 401 Unauthorized. | Rejected with HTTP 401 Unauthorized (`Not authenticated`). | **Pass** |
 | **TC-B16** | FR-B7 | User 1 has 3 bookings (1 reserved, 1 borrowed, 1 returned). | User 1 calls `GET /api/bookings/me` with bearer token. | Returns list of 3 bookings belonging to User 1, sorted newest first. | 200 OK; array of 3 booking objects matching User 1's ID. | **Pass** |
 | **TC-B17** | BR-04 | User A tries to borrow or return User B's booking. | User A calls `POST /api/bookings/{id_of_user_b}/borrow`. | Rejected with HTTP 409 Conflict or 403 Forbidden. | Rejected with 409 Conflict (`Cannot borrow another member's booking`). | **Pass** |
+| **TC-B19** | FR-B8 / DLBS-50 | Member holds mixed active bookings (e.g. 3 reserved and 2 borrowed). | Member attempts 6th booking via `POST /api/bookings`; returns 1 book and retries. | 6th attempt rejected with HTTP 409 Conflict; after return, reservation succeeds (HTTP 201). | Rejected with 409 Conflict: `A member may have at most 5 active bookings`; succeeds after return. | **Pass** |
 
 ---
 
@@ -85,7 +86,7 @@
 - **Regression Pass Rate:** **100% (142 / 142 passed)**.
 - **Critical Defects Open:** **0**.
 - **Module Coverage:**
-  - `src/bookings`: **93%** (exceeds $\ge 70\%$ requirement).
+  - `src/bookings`: **99%** (exceeds $\ge 70\%$ requirement NFR-B3).
   - `src/users`: **91%**.
   - `src/catalog`: **88%**.
   - `src/recommender`: **89%**.

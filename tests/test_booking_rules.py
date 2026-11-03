@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from fastapi import FastAPI
@@ -675,3 +675,165 @@ def test_tc_b04_member_tries_sixth_active_booking_rejected():
     # Member tries 6th active booking -> rejected
     with pytest.raises(MaxActiveBookingsLimitError, match="at most 5 active bookings"):
         service.reserve_book(user_id=10, book_id=606)
+
+
+# =========================================================================
+# DLBS-50: Booking Limit (FR-B8) and Remaining Unit Tests (NFR-B3)
+# =========================================================================
+
+
+def test_dlbs_50_api_sixth_active_booking_rejected_with_409(api_client):
+    """DLBS-50 / FR-B8: A sixth active reservation or loan is rejected with 409."""
+    client, service = api_client
+    for book_id in range(701, 707):
+        service.seed_book(book_id=book_id, title=f"Book {book_id}", available_copies=5)
+
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    # Member creates 5 active reservations successfully (201 Created)
+    for book_id in range(701, 706):
+        res = client.post("/api/bookings", json={"book_id": book_id}, headers=headers)
+        assert res.status_code == 201
+        assert res.json()["status"] == "reserved"
+
+    # Member attempts 6th active reservation -> rejected with HTTP 409 Conflict
+    res_sixth = client.post("/api/bookings", json={"book_id": 706}, headers=headers)
+    assert res_sixth.status_code == 409
+    assert "at most 5 active bookings" in res_sixth.json()["detail"].lower()
+
+
+def test_dlbs_50_sixth_active_with_mixed_borrowed_and_reserved_rejected(api_client):
+    """DLBS-50 / FR-B8: Sixth booking rejected when holding mixed reserved + borrowed loans."""
+    client, service = api_client
+    for book_id in range(711, 717):
+        service.seed_book(book_id=book_id, title=f"Book {book_id}", available_copies=5)
+
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    # Reserve 3 books
+    b1 = client.post("/api/bookings", json={"book_id": 711}, headers=headers).json()
+    b2 = client.post("/api/bookings", json={"book_id": 712}, headers=headers).json()
+    client.post("/api/bookings", json={"book_id": 713}, headers=headers)
+
+    # Borrow 2 of them (status becomes borrowed; still active)
+    borrow_res1 = client.post(f"/api/bookings/{b1['id']}/borrow", headers=headers)
+    assert borrow_res1.status_code == 200
+    borrow_res2 = client.post(f"/api/bookings/{b2['id']}/borrow", headers=headers)
+    assert borrow_res2.status_code == 200
+
+    # Reserve 2 more books (3 reserved + 2 borrowed = 5 active bookings)
+    client.post("/api/bookings", json={"book_id": 714}, headers=headers)
+    client.post("/api/bookings", json={"book_id": 715}, headers=headers)
+
+    # 6th booking attempt -> HTTP 409 Conflict
+    res_fail = client.post("/api/bookings", json={"book_id": 716}, headers=headers)
+    assert res_fail.status_code == 409
+    assert "at most 5 active bookings" in res_fail.json()["detail"].lower()
+
+    # Returning one of the borrowed books restores active capacity
+    return_res = client.post(f"/api/bookings/{b1['id']}/return", headers=headers)
+    assert return_res.status_code == 200
+
+    # Now member holds 4 active bookings, 6th attempt succeeds
+    res_retry = client.post("/api/bookings", json={"book_id": 716}, headers=headers)
+    assert res_retry.status_code == 201
+
+
+def test_dlbs_50_cancel_restores_allowance_via_api(api_client):
+    """DLBS-50 / FR-B8: Cancelling an active reservation frees up capacity."""
+    client, service = api_client
+    for book_id in range(721, 727):
+        service.seed_book(book_id=book_id, title=f"Book {book_id}", available_copies=5)
+
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    # Create 5 active reservations
+    first_booking = client.post("/api/bookings", json={"book_id": 721}, headers=headers).json()
+    for book_id in range(722, 726):
+        client.post("/api/bookings", json={"book_id": book_id}, headers=headers)
+
+    # 6th attempt fails
+    assert client.post("/api/bookings", json={"book_id": 726}, headers=headers).status_code == 409
+
+    # Cancel one reservation
+    cancel_res = client.delete(f"/api/bookings/{first_booking['id']}", headers=headers)
+    assert cancel_res.status_code == 200
+
+    # Now reservation succeeds
+    success_res = client.post("/api/bookings", json={"book_id": 726}, headers=headers)
+    assert success_res.status_code == 201
+
+
+def test_dlbs_50_api_routes_not_found_handling(api_client):
+    """DLBS-50: Verify borrow, return, and cancel return 404 for nonexistent bookings."""
+    client, _ = api_client
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    assert client.post("/api/bookings/99999/borrow", headers=headers).status_code == 404
+    assert client.post("/api/bookings/99999/return", headers=headers).status_code == 404
+    assert client.delete("/api/bookings/99999", headers=headers).status_code == 404
+
+
+def test_dlbs_50_api_cross_user_mutations_forbidden(api_client):
+    """DLBS-50: Verify users cannot borrow, return, or cancel another member's booking."""
+    client, service = api_client
+    service.seed_book(book_id=731, title="User Isolation Book", available_copies=5)
+
+    user1_headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+    user2_token = create_access_token(
+        CurrentUser(2, "Second Member", "member2@example.com", "member")
+    )
+    user2_headers = {"Authorization": f"Bearer {user2_token}"}
+
+    # User 1 reserves the book
+    b1 = client.post("/api/bookings", json={"book_id": 731}, headers=user1_headers).json()
+
+    # User 2 attempts to borrow User 1's booking -> 409 Conflict
+    res_borrow = client.post(f"/api/bookings/{b1['id']}/borrow", headers=user2_headers)
+    assert res_borrow.status_code == 409
+    assert "another member" in res_borrow.json()["detail"].lower()
+
+    # User 2 attempts to return User 1's booking -> 409 Conflict
+    res_return = client.post(f"/api/bookings/{b1['id']}/return", headers=user2_headers)
+    assert res_return.status_code == 409
+
+    # User 2 attempts to cancel User 1's booking -> 409 Conflict
+    res_cancel = client.delete(f"/api/bookings/{b1['id']}", headers=user2_headers)
+    assert res_cancel.status_code == 409
+    assert "another member" in res_cancel.json()["detail"].lower()
+
+
+def test_dlbs_50_models_and_service_edge_cases():
+    """DLBS-50: Test edge cases in models and service for full coverage."""
+    service = BookingService()
+
+    # get_book with non-existent ID returns None
+    assert service.get_book(99999) is None
+
+    # expire_booking with non-existent booking ID raises BookingRuleError
+    with pytest.raises(BookingRuleError, match="not found"):
+        service.expire_booking(99999)
+
+    # Booking post_init with datetime reserved_at sets created_at date
+    dt = datetime(2026, 11, 1, 14, 30)
+    b_dt = Booking(
+        id=1,
+        user_id=1,
+        book_id=1,
+        status=BookingStatus.RESERVED,
+        reserved_at=dt,
+        created_at=None,
+    )
+    assert b_dt.created_at == dt.date()
+
+    # Booking post_init with date reserved_at sets created_at date
+    d = date(2026, 11, 2)
+    b_d = Booking(
+        id=2,
+        user_id=1,
+        book_id=1,
+        status=BookingStatus.RESERVED,
+        reserved_at=d,
+        created_at=None,
+    )
+    assert b_d.created_at == d

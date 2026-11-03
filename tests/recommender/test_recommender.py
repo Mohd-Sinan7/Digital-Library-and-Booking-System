@@ -1,4 +1,6 @@
-"""Tests for Recommendation Engine skeleton, common interface and endpoints (NFR-R2, NFR-R3)."""
+"""Tests for recommender skeleton, popularity baseline and cold start (FR-R3, FR-R4)."""
+
+import dataclasses
 
 import pytest
 from fastapi import FastAPI
@@ -20,12 +22,15 @@ from src.recommender import (
 )
 from src.recommender.routes import get_db, router
 from src.users.auth import CurrentUser, create_access_token
+from src.users.models import FINISHED, READING, WANT_TO_READ, ReadingRecordRow
 
-# Real signed tokens for test users 1 and 2 (login issues JWTs since 1 Nov).
+# Real signed tokens for test users 1 and 2
 STUB_MEMBER_TOKEN = create_access_token(
     CurrentUser(1, "Test Member", "member@example.com", "member")
 )
-STUB_ADMIN_TOKEN = create_access_token(CurrentUser(2, "Test Admin", "admin@example.com", "admin"))
+STUB_ADMIN_TOKEN = create_access_token(
+    CurrentUser(2, "Test Admin", "admin@example.com", "admin")
+)
 
 
 @pytest.fixture
@@ -78,6 +83,21 @@ def _add_book(session: Session, **overrides) -> Book:
     return book
 
 
+def _add_record(
+    session: Session, user_id: int, book_id: int, status: str = FINISHED
+) -> ReadingRecordRow:
+    row = ReadingRecordRow(
+        user_id=user_id,
+        book_id=book_id,
+        status=status,
+        current_page=100 if status == FINISHED else 20,
+        percent=100.0 if status == FINISHED else 20.0,
+    )
+    session.add(row)
+    session.commit()
+    return row
+
+
 # --- Unit Tests: Domain Models and Interface (NFR-R2) ---
 
 
@@ -87,8 +107,8 @@ def test_recommendation_dataclass():
     assert rec.book_id == 42
     assert rec.score == 0.95
     assert rec.reason == "Because you read X"
-    with pytest.raises(Exception):
-        rec.score = 0.50  # frozen dataclass
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        rec.score = 0.50  # type: ignore
 
 
 def test_recommender_abstract_interface():
@@ -110,12 +130,11 @@ def test_pluggable_recommender_interface():
     set_recommender(custom)
     assert get_recommender() is custom
 
-    # Verify type checking on set_recommender
     with pytest.raises(TypeError):
         set_recommender("not a recommender")  # type: ignore
 
 
-# --- Unit Tests: Popularity Recommender & Service ---
+# --- Unit Tests: Popularity Recommender & Cold Start (FR-R3, FR-R4) ---
 
 
 def test_popularity_recommender_empty_catalog(session):
@@ -125,20 +144,108 @@ def test_popularity_recommender_empty_catalog(session):
     assert recs == []
 
 
-def test_popularity_recommender_with_books(session):
-    """Popularity recommender produces ranked scores descending from 1.0."""
-    for _ in range(5):
-        _add_book(session)
+def test_cold_start_user_gets_popular_books(session):
+    """FR-R3: Cold-start user gets popular books, never an error or empty list."""
+    # Seed 5 books in catalog
+    b1 = _add_book(session, title="Book 1")
+    b2 = _add_book(session, title="Book 2")
+    b3 = _add_book(session, title="Book 3")
 
     recommender = PopularityRecommender(db=session)
-    recs = recommender.recommend(user_id=1, n=3)
+    # User 99 has zero reading records
+    recs = recommender.recommend(user_id=99, n=10)
     assert len(recs) == 3
-    assert recs[0].book_id == 1
-    assert recs[0].score >= recs[1].score >= recs[2].score
+    assert [r.book_id for r in recs] == [b1.id, b2.id, b3.id]
     assert recs[0].reason == "Popular among library readers"
 
-    # Edge case: n <= 0
-    assert recommender.recommend(user_id=1, n=0, db=session) == []
+
+def test_popularity_ordering_by_reader_counts(session):
+    """Popularity recommender ranks books by reader counts descending across all users."""
+    b1 = _add_book(session, title="Low Popularity Book")
+    b2 = _add_book(session, title="High Popularity Book")
+    b3 = _add_book(session, title="Medium Popularity Book")
+
+    # b2 read by 3 users, b3 read by 2 users, b1 read by 1 user
+    for uid in [10, 11, 12]:
+        _add_record(session, user_id=uid, book_id=b2.id)
+    for uid in [10, 11]:
+        _add_record(session, user_id=uid, book_id=b3.id)
+    _add_record(session, user_id=10, book_id=b1.id)
+
+    recommender = PopularityRecommender(db=session)
+    recs = recommender.recommend(user_id=999, n=3)
+
+    assert len(recs) == 3
+    assert recs[0].book_id == b2.id
+    assert recs[1].book_id == b3.id
+    assert recs[2].book_id == b1.id
+    assert recs[0].score >= recs[1].score >= recs[2].score
+    assert "3 readers" in recs[0].reason
+
+
+def test_exclusion_of_finished_books(session):
+    """FR-R4: The system shall not recommend books the user has already finished."""
+    b1 = _add_book(session, title="Finished Book 1")
+    b2 = _add_book(session, title="Unread Book 2")
+    b3 = _add_book(session, title="Finished Book 3")
+    b4 = _add_book(session, title="Currently Reading Book 4")
+    b5 = _add_book(session, title="Want To Read Book 5")
+
+    user_id = 42
+    # User 42 has finished b1 and b3
+    _add_record(session, user_id=user_id, book_id=b1.id, status=FINISHED)
+    _add_record(session, user_id=user_id, book_id=b3.id, status=FINISHED)
+    # b4 is in reading status, b5 is in want_to_read status (should NOT be excluded by FR-R4)
+    _add_record(session, user_id=user_id, book_id=b4.id, status=READING)
+    _add_record(session, user_id=user_id, book_id=b5.id, status=WANT_TO_READ)
+
+    recommender = PopularityRecommender(db=session)
+    recs = recommender.recommend(user_id=user_id, n=10)
+
+    rec_book_ids = [r.book_id for r in recs]
+    assert b1.id not in rec_book_ids
+    assert b3.id not in rec_book_ids
+    assert b2.id in rec_book_ids
+    assert b4.id in rec_book_ids
+    assert b5.id in rec_book_ids
+
+
+def test_exclusion_of_removed_books(session):
+    """FR-R4: Books removed / deleted from the catalog are never recommended."""
+    b1 = _add_book(session, title="Active Book 1")
+    b2 = _add_book(session, title="Deleted Book 2", is_deleted=True)
+
+    recommender = PopularityRecommender(db=session)
+    recs = recommender.recommend(user_id=1, n=5)
+
+    rec_book_ids = [r.book_id for r in recs]
+    assert b1.id in rec_book_ids
+    assert b2.id not in rec_book_ids
+
+
+def test_cold_start_genre_filtering(session):
+    """FR-R3: Popularity cold start can filter by a chosen genre."""
+    b_sci1 = _add_book(session, title="Dune", genre="Sci-Fi")
+    b_sci2 = _add_book(session, title="Foundation", genre="Sci-Fi")
+    _add_book(session, title="Emma", genre="Romance")
+
+    recommender = PopularityRecommender(db=session)
+    recs = recommender.recommend(user_id=1, n=10, genre="Sci-Fi")
+
+    assert len(recs) == 2
+    assert {r.book_id for r in recs} == {b_sci1.id, b_sci2.id}
+    assert all("Sci-Fi" in r.reason for r in recs)
+
+
+def test_edge_cases_n_zero_or_negative(session):
+    """recommend with n <= 0 returns empty list without error."""
+    _add_book(session)
+    recommender = PopularityRecommender(db=session)
+    assert recommender.recommend(user_id=1, n=0) == []
+    assert recommender.recommend(user_id=1, n=-5) == []
+
+
+# --- Unit Tests: Service Layer ---
 
 
 def test_service_get_recommendations_enriches_catalog_fields(session):
@@ -157,7 +264,6 @@ def test_service_get_recommendations_enriches_catalog_fields(session):
     set_recommender(FixedRecommender())
 
     results = get_recommendations(user_id=1, limit=5, db=session)
-    # b2 is deleted and 99999 does not exist, so only b1 should be returned (FR-R4)
     assert len(results) == 1
     card = results[0]
     assert card["book_id"] == b1.id
@@ -167,7 +273,6 @@ def test_service_get_recommendations_enriches_catalog_fields(session):
     assert card["score"] == 0.9
     assert card["reason"] == "Because you read Python 101"
 
-    # limit <= 0 returns empty list
     assert get_recommendations(user_id=1, limit=0, db=session) == []
 
 
@@ -203,7 +308,7 @@ def test_get_db_generator():
         pass
 
 
-# --- Integration / API Tests: Endpoints (FR-R1, FR-R6) ---
+# --- Integration / API Tests: Endpoints (FR-R1, FR-R3, FR-R6) ---
 
 
 def test_get_recommendations_endpoint_requires_auth(client):
@@ -213,27 +318,26 @@ def test_get_recommendations_endpoint_requires_auth(client):
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_get_recommendations_endpoint_success(client, session):
-    """GET /api/recommendations/me returns 200 and items for authenticated member."""
-    b1 = _add_book(session, title="Domain-Driven Design")
-
-    class SingleBookRecommender(Recommender):
-        def recommend(self, user_id: int, n: int = 10) -> list[Recommendation]:
-            return [Recommendation(book_id=b1.id, score=0.95, reason="Top choice")][:n]
-
-    set_recommender(SingleBookRecommender())
+def test_get_recommendations_endpoint_success_and_cold_start(client, session):
+    """GET /api/recommendations/me returns 200 with popular books for cold start user."""
+    b1 = _add_book(session, title="Domain-Driven Design", genre="Tech")
+    b2 = _add_book(session, title="Refactoring", genre="Tech")
+    _add_book(session, title="Cooking 101", genre="Food")
 
     headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
     response = client.get("/api/recommendations/me", headers=headers)
     assert response.status_code == 200
 
     data = response.json()
-    assert data["count"] == 1
-    assert len(data["items"]) == 1
-    assert data["items"][0]["book_id"] == b1.id
-    assert data["items"][0]["title"] == "Domain-Driven Design"
-    assert data["items"][0]["score"] == 0.95
-    assert data["items"][0]["reason"] == "Top choice"
+    assert data["count"] == 3
+    assert len(data["items"]) == 3
+
+    # Test genre filtering query parameter
+    res_genre = client.get("/api/recommendations/me?genre=Tech", headers=headers)
+    assert res_genre.status_code == 200
+    tech_data = res_genre.json()
+    assert tech_data["count"] == 2
+    assert {i["book_id"] for i in tech_data["items"]} == {b1.id, b2.id}
 
 
 @pytest.mark.parametrize("bad_limit", [0, -1, 51])
@@ -246,16 +350,13 @@ def test_get_recommendations_endpoint_validation(client, bad_limit):
 
 def test_refresh_endpoint_admin_only(client):
     """POST /api/recommendations/refresh requires admin role (403 for member, 200 for admin)."""
-    # 1. No token -> 401
     assert client.post("/api/recommendations/refresh").status_code == 401
 
-    # 2. Member token -> 403 Forbidden
     member_headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
     res_member = client.post("/api/recommendations/refresh", headers=member_headers)
     assert res_member.status_code == 403
     assert res_member.json()["detail"] == "Admin privileges required"
 
-    # 3. Admin token -> 200 OK
     admin_headers = {"Authorization": f"Bearer {STUB_ADMIN_TOKEN}"}
     res_admin = client.post("/api/recommendations/refresh", headers=admin_headers)
     assert res_admin.status_code == 200

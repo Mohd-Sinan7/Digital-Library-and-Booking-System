@@ -32,6 +32,7 @@ def set_recommender(recommender: Recommender) -> None:
 def get_recommendations(
     user_id: int,
     limit: int = 10,
+    genre: str | None = None,
     db: Session | None = None,
 ) -> list[dict]:
     """Generate and enrich top-n recommendations for a given user.
@@ -43,6 +44,7 @@ def get_recommendations(
     Args:
         user_id: The ID of the user.
         limit: Maximum number of recommendations to return.
+        genre: Optional genre filter for cold start or genre-focused recs.
         db: Optional database session to reuse.
 
     Returns:
@@ -51,19 +53,21 @@ def get_recommendations(
     if limit <= 0:
         return []
 
-    # If the algorithm supports a db parameter, pass it; otherwise call recommend(user_id, n)
+    # Support flexible recommender signatures
     sig = inspect.signature(_active_recommender.recommend)
+    kwargs = {"user_id": user_id, "n": limit}
+    if "genre" in sig.parameters:
+        kwargs["genre"] = genre
     if "db" in sig.parameters:
-        recs = _active_recommender.recommend(user_id=user_id, n=limit, db=db)  # type: ignore
-    else:
-        recs = _active_recommender.recommend(user_id=user_id, n=limit)
+        kwargs["db"] = db
+
+    recs = _active_recommender.recommend(**kwargs)  # type: ignore
 
     enriched: list[dict] = []
-
     for rec in recs:
         book = catalog_service.get_book(rec.book_id, db=db)
         # Skip books that no longer exist or are marked as deleted (FR-R4)
-        if book is None:
+        if book is None or book.get("is_deleted", False):
             continue
 
         enriched.append(

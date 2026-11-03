@@ -612,6 +612,7 @@ Requires authentication (`Authorization: Bearer <token>`).
 
 Query parameters:
 - `limit` (integer, optional, default: 10, min: 1, max: 50): Number of recommendations to return.
+- `genre` (string, optional): Filter cold-start or popularity recommendations by genre (FR-R3).
 
 Response `200`:
 

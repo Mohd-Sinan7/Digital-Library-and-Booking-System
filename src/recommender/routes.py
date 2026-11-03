@@ -20,15 +20,16 @@ def get_db():
 @router.get("/me")
 def get_my_recommendations(
     limit: int = Query(10, ge=1, le=50),
+    genre: str | None = Query(None),
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return personalized or cold-start recommendations for the logged-in user (FR-R1).
+    """Return personalized or cold-start recommendations for the logged-in user (FR-R1, FR-R3).
 
     Each item carries book_id, title, author, cover_url, score, and reason.
     Requires authentication (Bearer token).
     """
-    items = service.get_recommendations(user_id=user.id, limit=limit, db=db)
+    items = service.get_recommendations(user_id=user.id, limit=limit, genre=genre, db=db)
     return {"items": items, "count": len(items)}
 
 

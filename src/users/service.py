@@ -4,6 +4,7 @@ create_user() is the one way to add a user: registration and Member 4's demo see
 script both call it, so every password is validated and hashed the same way.
 """
 
+import os
 import re
 
 import bcrypt
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.users.models import MEMBER, User
+from src.users.models import ADMIN, MEMBER, User
 
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_BYTES = 72  # bcrypt rejects longer passwords
@@ -92,4 +93,23 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
     user = db.scalar(select(User).where(User.email == normalize_email(email)))
     if user is None or not verify_password(password, user.password_hash):
         return None
+    return user
+
+
+def ensure_admin_account(db: Session) -> User | None:
+    """Make sure the first admin from ADMIN_EMAIL and ADMIN_PASSWORD exists (FR-U3).
+
+    Creates the account if the email is new, or gives an existing account the admin
+    role (its password is not changed). Returns None when either variable is unset.
+    """
+    email = os.getenv("ADMIN_EMAIL", "").strip()
+    password = os.getenv("ADMIN_PASSWORD", "")
+    if not email or not password:
+        return None
+    user = db.scalar(select(User).where(User.email == normalize_email(email)))
+    if user is None:
+        return create_user(db, "Admin", email, password, role=ADMIN)
+    if user.role != ADMIN:
+        user.role = ADMIN
+        db.commit()
     return user

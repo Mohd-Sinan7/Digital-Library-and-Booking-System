@@ -48,8 +48,25 @@ def get_book(book_id: int, user: CurrentUser = Depends(get_current_user)):
 
 `CurrentUser` has `id`, `name`, `email` and `role` (`"member"` or `"admin"`).
 
-An admin-only helper that returns 403 to members is added with the Roles story by
-31 Oct. Until then, check `user.role == "admin"` yourself.
+For admin-only endpoints, use `require_admin` instead. Members get 403, and no token
+still gets 401:
+
+```python
+from src.users.auth import CurrentUser, require_admin
+
+
+@router.post("")
+def add_book(body: BookIn, admin: CurrentUser = Depends(require_admin)):
+    ...  # admins only
+
+
+# or protect every endpoint of a router
+admin_router = APIRouter(prefix="/api/admin", dependencies=[Depends(require_admin)])
+```
+
+The first admin account comes from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the
+environment (placeholders in `.env.example`). Run `python -m scripts.create_admin`
+to create it.
 
 ### Tokens
 

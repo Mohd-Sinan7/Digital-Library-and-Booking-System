@@ -79,7 +79,8 @@ You need Python 3.11 or newer.
 
 3. Copy `.env.example` to `.env` and fill in your own local values. Never commit `.env`.
 
-4. Start the server (the app entry point `src/main.py` is added in Sprint 1):
+4. Start the server. On startup it creates the database tables and the first admin
+   account from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`:
 
    ```bash
    uvicorn src.main:app --reload

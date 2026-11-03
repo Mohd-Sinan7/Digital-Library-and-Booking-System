@@ -3,6 +3,7 @@ uvicorn~=0.54.0
 sqlalchemy~=2.1.6
 bcrypt~=5.0.0
 pyjwt~=2.15.1
+python-dotenv~=1.2.4
 
 # Development and CI tools
 ruff~=0.17.3

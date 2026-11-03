@@ -353,3 +353,214 @@ def test_api_borrow_return_cancel_and_get_me(api_client):
     cancel_res = client.delete(f"/api/bookings/{booking_id2}", headers=headers)
     assert cancel_res.status_code == 200
     assert cancel_res.json()["status"] == "cancelled"
+
+
+# =========================================================================
+# Acceptance Criteria Tests for Ticket DLBS-49 / FR-B2, FR-B3, FR-B4, FR-B5
+# =========================================================================
+
+
+def test_tc_b01_borrow_sets_status_and_due_date_copies_unchanged():
+    """TC-B01 / FR-B2: Status becomes borrowed, due date is 14 days,
+    available copies unchanged by borrowing."""
+    service = BookingService()
+    service.seed_book(book_id=301, title="Domain-Driven Design", available_copies=5)
+
+    # Reserve -> copies drop by 1
+    booking = service.reserve_book(user_id=1, book_id=301)
+    copies_after_reserve = service.get_book(301)["available_copies"]
+    assert copies_after_reserve == 4
+
+    # Borrow -> status is borrowed, due_date is 14 days, copies unchanged
+    borrowed = service.borrow_book(booking_id=booking.id, user_id=1)
+    assert borrowed.status == BookingStatus.BORROWED
+    assert borrowed.due_date == calculate_due_date(date.today())
+
+    copies_after_borrow = service.get_book(301)["available_copies"]
+    assert copies_after_borrow == copies_after_reserve  # FR-B2: unchanged
+
+
+def test_tc_b03_return_restores_copy_and_rejects_non_borrowed():
+    """TC-B03 / FR-B3: Status becomes returned and available copies rise by
+    one; returning a booking that is not borrowed is rejected."""
+    service = BookingService()
+    service.seed_book(book_id=302, title="Working Effectively", available_copies=3)
+
+    # Reserve -> borrow -> return
+    b1 = service.reserve_book(user_id=1, book_id=302)
+    copies_after_reserve = service.get_book(302)["available_copies"]
+    assert copies_after_reserve == 2
+
+    service.borrow_book(booking_id=b1.id, user_id=1)
+    copies_after_borrow = service.get_book(302)["available_copies"]
+    assert copies_after_borrow == 2  # borrow doesn't change copies
+
+    returned = service.return_book(booking_id=b1.id, user_id=1)
+    assert returned.status == BookingStatus.RETURNED
+    copies_after_return = service.get_book(302)["available_copies"]
+    assert copies_after_return == copies_after_reserve + 1  # rises by one
+
+    # Returning an already-returned booking is rejected
+    with pytest.raises(BookingRuleError):
+        service.return_book(booking_id=b1.id, user_id=1)
+    # Copies unchanged after rejected return of already-returned booking
+    assert service.get_book(302)["available_copies"] == copies_after_return
+
+    # Returning a reserved-only booking is rejected
+    b2 = service.reserve_book(user_id=2, book_id=302)
+    copies_after_reserve_b2 = service.get_book(302)["available_copies"]
+    with pytest.raises(BookingRuleError):
+        service.return_book(booking_id=b2.id, user_id=2)
+    # Copies unchanged after rejected return of reserved booking
+    assert service.get_book(302)["available_copies"] == copies_after_reserve_b2
+
+
+def test_tc_b05_cancel_restores_copy_and_rejects_borrowed():
+    """TC-B05 / FR-B4: Status becomes cancelled and available copies rise by
+    one; a borrowed booking cannot be cancelled."""
+    service = BookingService()
+    service.seed_book(book_id=303, title="Mythical Man-Month", available_copies=4)
+
+    # Reserve then cancel
+    b1 = service.reserve_book(user_id=1, book_id=303)
+    copies_after_reserve = service.get_book(303)["available_copies"]
+    assert copies_after_reserve == 3
+
+    cancelled = service.cancel_booking(booking_id=b1.id, user_id=1)
+    assert cancelled.status == BookingStatus.CANCELLED
+    copies_after_cancel = service.get_book(303)["available_copies"]
+    assert copies_after_cancel == copies_after_reserve + 1  # rises by one
+
+    # Reserve -> borrow -> try cancel -> rejected
+    b2 = service.reserve_book(user_id=2, book_id=303)
+    service.borrow_book(booking_id=b2.id, user_id=2)
+    copies_before_rejected_cancel = service.get_book(303)["available_copies"]
+
+    with pytest.raises(BookingRuleError):
+        service.cancel_booking(booking_id=b2.id, user_id=2)
+
+    # Copies unchanged after rejected cancel
+    assert (
+        service.get_book(303)["available_copies"]
+        == copies_before_rejected_cancel
+    )
+
+
+def test_tc_b08_counts_verified_after_every_action():
+    """TC-B08 / FR-B5: Counts checked after every action
+    (reserve, borrow, return, reserve again, cancel)."""
+    service = BookingService()
+    service.seed_book(
+        book_id=304, title="The Pragmatic Programmer", available_copies=5
+    )
+
+    # 1. Reserve: copies 5 -> 4
+    b1 = service.reserve_book(user_id=1, book_id=304)
+    assert service.get_book(304)["available_copies"] == 4
+
+    # 2. Borrow: copies stay 4 (FR-B2)
+    service.borrow_book(booking_id=b1.id, user_id=1)
+    assert service.get_book(304)["available_copies"] == 4
+
+    # 3. Return: copies 4 -> 5 (FR-B3)
+    service.return_book(booking_id=b1.id, user_id=1)
+    assert service.get_book(304)["available_copies"] == 5
+
+    # 4. Reserve again: copies 5 -> 4
+    b2 = service.reserve_book(user_id=2, book_id=304)
+    assert service.get_book(304)["available_copies"] == 4
+
+    # 5. Cancel: copies 4 -> 5 (FR-B4)
+    service.cancel_booking(booking_id=b2.id, user_id=2)
+    assert service.get_book(304)["available_copies"] == 5
+
+
+# ---- API integration tests for DLBS-49 ----
+
+
+def test_api_borrow_copies_unchanged(api_client):
+    """FR-B2 API: Borrow via API does not change available_copies."""
+    client, service = api_client
+    service.seed_book(book_id=30, title="API Test Book", available_copies=3)
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    res = client.post("/api/bookings", json={"book_id": 30}, headers=headers)
+    assert res.status_code == 201
+    booking_id = res.json()["id"]
+    assert service.get_book(30)["available_copies"] == 2
+
+    borrow_res = client.post(
+        f"/api/bookings/{booking_id}/borrow", headers=headers
+    )
+    assert borrow_res.status_code == 200
+    assert borrow_res.json()["status"] == "borrowed"
+    assert borrow_res.json()["due_date"] is not None
+    assert service.get_book(30)["available_copies"] == 2  # unchanged
+
+
+def test_api_return_non_borrowed_returns_409(api_client):
+    """FR-B3 API: Returning a reserved booking returns 409."""
+    client, service = api_client
+    service.seed_book(book_id=31, title="Non-Borrowed", available_copies=3)
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    res = client.post("/api/bookings", json={"book_id": 31}, headers=headers)
+    assert res.status_code == 201
+    booking_id = res.json()["id"]
+
+    return_res = client.post(
+        f"/api/bookings/{booking_id}/return", headers=headers
+    )
+    assert return_res.status_code == 409
+
+
+def test_api_cancel_borrowed_returns_409(api_client):
+    """FR-B4 API: Cancelling a borrowed booking returns 409."""
+    client, service = api_client
+    service.seed_book(
+        book_id=32, title="Borrowed Cancel", available_copies=3
+    )
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    res = client.post("/api/bookings", json={"book_id": 32}, headers=headers)
+    assert res.status_code == 201
+    booking_id = res.json()["id"]
+
+    client.post(f"/api/bookings/{booking_id}/borrow", headers=headers)
+
+    cancel_res = client.delete(
+        f"/api/bookings/{booking_id}", headers=headers
+    )
+    assert cancel_res.status_code == 409
+
+
+def test_tc_b02_second_member_reserves_same_book_rejected():
+    """TC-B02 / FR-B9: Second member reserves book with 0 copies (rejected)."""
+    service = BookingService()
+    service.seed_book(book_id=501, title="Single Copy Book", available_copies=1)
+
+    # Member 1 reserves successfully
+    b1 = service.reserve_book(user_id=1, book_id=501)
+    assert b1.status == BookingStatus.RESERVED
+    assert service.get_book(501)["available_copies"] == 0
+
+    # Member 2 attempts to reserve the same book -> rejected with clear message
+    with pytest.raises(NoCopiesAvailableError, match="No copies"):
+        service.reserve_book(user_id=2, book_id=501)
+
+    assert service.get_book(501)["available_copies"] == 0
+
+
+def test_tc_b04_member_tries_sixth_active_booking_rejected():
+    """TC-B04 / FR-B8: Member tries a sixth active booking -> rejected."""
+    service = BookingService()
+    for book_id in range(601, 607):
+        service.seed_book(book_id=book_id, title=f"Book {book_id}", available_copies=5)
+
+    # Member creates 5 active bookings
+    for book_id in range(601, 606):
+        service.reserve_book(user_id=10, book_id=book_id)
+
+    # Member tries 6th active booking -> rejected
+    with pytest.raises(MaxActiveBookingsLimitError, match="at most 5 active bookings"):
+        service.reserve_book(user_id=10, book_id=606)

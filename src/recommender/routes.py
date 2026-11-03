@@ -1,12 +1,11 @@
-"""REST endpoints for the Recommendation Engine."""
+"""REST endpoints for the Recommendation Engine (FR-R1, FR-R6)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from src.db import SessionLocal
 from src.recommender import service
-from src.users.auth import CurrentUser, get_current_user
-from src.users.models import ADMIN
+from src.users.auth import CurrentUser, get_current_user, require_admin
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
@@ -24,10 +23,11 @@ def get_my_recommendations(
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return personalized or cold-start recommendations for the logged-in user (FR-R1, FR-R3).
+    """Return top-N personalized or cold-start recommendations for the logged-in user (FR-R1).
 
-    Each item carries book_id, title, author, cover_url, score, and reason.
-    Requires authentication (Bearer token).
+    Returns at most `limit` items sorted by score descending, where each item holds:
+    book_id, title, author, cover_url, score, and reason.
+    Requires authentication (Bearer token). No token returns 401.
     """
     items = service.get_recommendations(user_id=user.id, limit=limit, genre=genre, db=db)
     return {"items": items, "count": len(items)}
@@ -35,15 +35,10 @@ def get_my_recommendations(
 
 @router.post("/refresh")
 def refresh_models(
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_admin),
 ):
     """Trigger a refresh or retrain of the recommendation models (FR-R6).
 
     Administrator only. Returns 403 for regular members.
     """
-    if user.role != ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required",
-        )
     return service.refresh_recommendations()

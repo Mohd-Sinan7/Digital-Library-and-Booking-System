@@ -35,7 +35,7 @@ def get_recommendations(
     genre: str | None = None,
     db: Session | None = None,
 ) -> list[dict]:
-    """Generate and enrich top-n recommendations for a given user.
+    """Generate and enrich top-n recommendations for a given user (FR-R1).
 
     Calls the active recommender in-process, fetches book details from the
     Catalog module, and produces complete recommendation cards with title,
@@ -48,7 +48,7 @@ def get_recommendations(
         db: Optional database session to reuse.
 
     Returns:
-        A list of recommendation dictionaries.
+        A list of recommendation dictionaries sorted descending by score.
     """
     if limit <= 0:
         return []
@@ -82,7 +82,9 @@ def get_recommendations(
             }
         )
 
-    return enriched
+    # Guarantee items are sorted descending by score and capped at limit (FR-R1)
+    enriched.sort(key=lambda x: x["score"], reverse=True)
+    return enriched[:limit]
 
 
 def refresh_recommendations() -> dict:

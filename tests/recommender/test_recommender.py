@@ -1,6 +1,7 @@
-"""Tests for recommender skeleton, popularity baseline and cold start (FR-R3, FR-R4)."""
+"""Tests for recommender skeleton, popularity baseline and cold start (FR-R1, FR-R3, FR-R4)."""
 
 import dataclasses
+from datetime import timedelta
 
 import pytest
 from fastapi import FastAPI
@@ -146,13 +147,11 @@ def test_popularity_recommender_empty_catalog(session):
 
 def test_cold_start_user_gets_popular_books(session):
     """FR-R3: Cold-start user gets popular books, never an error or empty list."""
-    # Seed 5 books in catalog
     b1 = _add_book(session, title="Book 1")
     b2 = _add_book(session, title="Book 2")
     b3 = _add_book(session, title="Book 3")
 
     recommender = PopularityRecommender(db=session)
-    # User 99 has zero reading records
     recs = recommender.recommend(user_id=99, n=10)
     assert len(recs) == 3
     assert [r.book_id for r in recs] == [b1.id, b2.id, b3.id]
@@ -165,7 +164,6 @@ def test_popularity_ordering_by_reader_counts(session):
     b2 = _add_book(session, title="High Popularity Book")
     b3 = _add_book(session, title="Medium Popularity Book")
 
-    # b2 read by 3 users, b3 read by 2 users, b1 read by 1 user
     for uid in [10, 11, 12]:
         _add_record(session, user_id=uid, book_id=b2.id)
     for uid in [10, 11]:
@@ -192,10 +190,8 @@ def test_exclusion_of_finished_books(session):
     b5 = _add_book(session, title="Want To Read Book 5")
 
     user_id = 42
-    # User 42 has finished b1 and b3
     _add_record(session, user_id=user_id, book_id=b1.id, status=FINISHED)
     _add_record(session, user_id=user_id, book_id=b3.id, status=FINISHED)
-    # b4 is in reading status, b5 is in want_to_read status (should NOT be excluded by FR-R4)
     _add_record(session, user_id=user_id, book_id=b4.id, status=READING)
     _add_record(session, user_id=user_id, book_id=b5.id, status=WANT_TO_READ)
 
@@ -312,29 +308,107 @@ def test_get_db_generator():
 
 
 def test_get_recommendations_endpoint_requires_auth(client):
-    """GET /api/recommendations/me returns 401 without Bearer token."""
+    """FR-R1: GET /api/recommendations/me returns 401 without Bearer token."""
     response = client.get("/api/recommendations/me")
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_get_recommendations_endpoint_success_and_cold_start(client, session):
-    """GET /api/recommendations/me returns 200 with popular books for cold start user."""
+@pytest.mark.parametrize(
+    "bad_auth",
+    [
+        "Basic dXNlcjpwYXNz",
+        "Bearer invalid-jwt-token-garbage",
+        "Bearer ",
+        "Token some-other-token",
+    ],
+)
+def test_get_recommendations_endpoint_rejects_bad_token(client, bad_auth):
+    """FR-R1: Invalid or malformed tokens get rejected with 401."""
+    response = client.get("/api/recommendations/me", headers={"Authorization": bad_auth})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_get_recommendations_endpoint_rejects_expired_token(client):
+    """FR-R1: Expired tokens get rejected with 401."""
+    user = CurrentUser(1, "Test Member", "member@example.com", "member")
+    expired_token = create_access_token(user, expires_in=timedelta(minutes=-5))
+    response = client.get(
+        "/api/recommendations/me",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_get_recommendations_endpoint_limit_and_sorted_by_score(client, session):
+    """FR-R1: GET /api/recommendations/me?limit=10 returns at most 10 items sorted by score.
+
+    Each item carries: book_id, title, author, cover_url, score, reason.
+    """
+    # Seed 15 books with varied popularity
+    books = []
+    for i in range(1, 16):
+        b = _add_book(
+            session,
+            title=f"Sample Book {i:02d}",
+            author=f"Author {i}",
+            cover_url=f"https://covers.example.org/{i}.jpg",
+        )
+        books.append(b)
+
+    # Add different reader counts to create distinct scores
+    # Book 1: 5 readers, Book 2: 4 readers, Book 3: 3 readers, etc.
+    for idx, b in enumerate(books[:5]):
+        for uid in range(10, 10 + (5 - idx)):
+            _add_record(session, user_id=uid, book_id=b.id)
+
+    headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
+
+    # 1. Request with limit=10 on 15 catalog books
+    response = client.get("/api/recommendations/me?limit=10", headers=headers)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "items" in data and "count" in data
+    assert data["count"] == 10
+    items = data["items"]
+    assert len(items) == 10
+
+    # Verify every required field is present in each recommendation card
+    required_keys = {"book_id", "title", "author", "cover_url", "score", "reason"}
+    for item in items:
+        assert required_keys.issubset(item.keys())
+        assert isinstance(item["book_id"], int)
+        assert isinstance(item["title"], str)
+        assert isinstance(item["author"], str)
+        assert isinstance(item["score"], (int, float))
+        assert isinstance(item["reason"], str)
+
+    # Verify items are strictly sorted by score in descending order (FR-R1)
+    scores = [item["score"] for item in items]
+    assert scores == sorted(scores, reverse=True)
+    for i in range(len(items) - 1):
+        assert items[i]["score"] >= items[i + 1]["score"]
+
+    # 2. Request with limit=5 returns at most 5 items
+    res_limit_5 = client.get("/api/recommendations/me?limit=5", headers=headers)
+    assert res_limit_5.status_code == 200
+    assert len(res_limit_5.json()["items"]) == 5
+    assert res_limit_5.json()["count"] == 5
+
+
+def test_get_recommendations_endpoint_genre_filter(client, session):
+    """FR-R3: GET /api/recommendations/me?genre=... filters results to specified genre."""
     b1 = _add_book(session, title="Domain-Driven Design", genre="Tech")
     b2 = _add_book(session, title="Refactoring", genre="Tech")
     _add_book(session, title="Cooking 101", genre="Food")
 
     headers = {"Authorization": f"Bearer {STUB_MEMBER_TOKEN}"}
-    response = client.get("/api/recommendations/me", headers=headers)
-    assert response.status_code == 200
-
-    data = response.json()
-    assert data["count"] == 3
-    assert len(data["items"]) == 3
-
-    # Test genre filtering query parameter
     res_genre = client.get("/api/recommendations/me?genre=Tech", headers=headers)
     assert res_genre.status_code == 200
+
     tech_data = res_genre.json()
     assert tech_data["count"] == 2
     assert {i["book_id"] for i in tech_data["items"]} == {b1.id, b2.id}

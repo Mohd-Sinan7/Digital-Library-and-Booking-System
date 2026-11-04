@@ -158,6 +158,10 @@ Request:
 
 Response `200`: the updated profile, same shape as `GET /api/users/me`.
 
+Errors: `422` blank name, a name over 100 characters, or a body that also sends `email`
+or `role`. The token still carries the old name until the next login, so read the name
+from `GET /api/users/me`.
+
 ### Reading record
 
 `PUT /api/reading/status`, `POST /api/reading/progress` and

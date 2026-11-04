@@ -86,7 +86,14 @@ You need Python 3.11 or newer.
    uvicorn src.main:app --reload
    ```
 
-5. Open http://127.0.0.1:8000/docs to try the API.
+5. (Optional) Seed the book catalog using Member 2's repository function (DLBS-47):
+
+   ```bash
+   python -m scripts.seed           # seeds data/books.csv if present, else sample
+   python -m scripts.seed --sample  # seeds 20 sample books (data/books_sample.csv)
+   ```
+
+6. Open http://127.0.0.1:8000/docs to try the API.
 
 ## How to test
 

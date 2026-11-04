@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 
 from src.catalog import service as catalog_service
 from src.recommender.base import Recommender
-from src.recommender.popularity import PopularityRecommender
+from src.recommender.content_based import ContentBasedRecommender
 
-# Default algorithm instance
-_active_recommender: Recommender = PopularityRecommender()
+# Default algorithm instance for Sprint 2 (FR-R2)
+_active_recommender: Recommender = ContentBasedRecommender()
 
 
 def get_recommender() -> Recommender:
@@ -35,7 +35,7 @@ def get_recommendations(
     genre: str | None = None,
     db: Session | None = None,
 ) -> list[dict]:
-    """Generate and enrich top-n recommendations for a given user (FR-R1).
+    """Generate and enrich top-n recommendations for a given user (FR-R1, FR-R2).
 
     Calls the active recommender in-process, fetches book details from the
     Catalog module, and produces complete recommendation cards with title,

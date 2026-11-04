@@ -9,6 +9,9 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
+    env:
+      # Minimum total test coverage of src/, in percent. 50% from 5 Nov, 70% by 7 Nov.
+      COVERAGE_GATE: "50"
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -28,3 +31,28 @@ jobs:
 
       - name: Lint
         run: ruff check --line-length 100 --select E,F,W,I .
+
+      - name: Test with coverage gate
+        run: >-
+          pytest
+          --cov=src
+          --cov-report=term-missing
+          --cov-report=xml
+          --cov-fail-under="$COVERAGE_GATE"
+
+      - name: Coverage summary
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: |
+          {
+            echo "## Test coverage (gate: ${COVERAGE_GATE}%)"
+            echo
+            coverage report --format=markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() && hashFiles('coverage.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 14

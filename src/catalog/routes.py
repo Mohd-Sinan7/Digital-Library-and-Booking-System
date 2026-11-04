@@ -42,6 +42,21 @@ def list_books(
     return service.get_books(q, genre, available, page, page_size, db=db)
 
 
+@router.get("/genres")
+def list_genres(db: Session = Depends(get_db)):
+    """Genres for the catalog filter dropdown (FR-C5). Public."""
+    return {"items": service.get_genres(db=db)}
+
+
+@router.get("/{book_id}/availability")
+def get_availability(book_id: int, db: Session = Depends(get_db)):
+    """Copy counts for the UI (FR-C5). Public. 404 for missing or deleted books."""
+    data = service.get_availability(book_id, db=db)
+    if data is None or data["is_deleted"]:
+        raise _not_found()
+    return {k: data[k] for k in ("book_id", "total_copies", "available_copies", "is_available")}
+
+
 @router.get("/{book_id}")
 def get_book(book_id: int, db: Session = Depends(get_db)):
     """Book detail (FR-C6). Public. 404 for missing or deleted books."""

@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 from src.catalog.models import Book
 from src.db import create_tables
 from src.recommender import (
+    ContentBasedRecommender,
     PopularityRecommender,
     Recommendation,
     Recommender,
@@ -435,3 +436,242 @@ def test_refresh_endpoint_admin_only(client):
     res_admin = client.post("/api/recommendations/refresh", headers=admin_headers)
     assert res_admin.status_code == 200
     assert res_admin.json()["status"] == "ok"
+
+
+
+# ==============================================================================
+# Content-Based Filtering with TF-IDF Tests (FR-R2, DLBS-11)
+# ==============================================================================
+
+
+def test_content_based_recommender_inherits_recommender():
+    """NFR-R2: ContentBasedRecommender implements the common Recommender interface."""
+    cb = ContentBasedRecommender()
+    assert isinstance(cb, Recommender)
+
+
+def test_content_based_recommender_empty_catalog(session):
+    """ContentBasedRecommender returns empty list when catalog is empty."""
+    cb = ContentBasedRecommender(db=session)
+    assert cb.recommend(user_id=1, n=10) == []
+
+
+def test_content_based_recommender_negative_or_zero_n(session):
+    """ContentBasedRecommender returns empty list for non-positive n."""
+    _add_book(session, title="Book 1")
+    cb = ContentBasedRecommender(db=session)
+    assert cb.recommend(user_id=1, n=0) == []
+    assert cb.recommend(user_id=1, n=-5) == []
+
+
+def test_content_based_recommender_cold_start_fallback(session):
+    """FR-R3: Cold-start user with no history falls back to popularity recommendations."""
+    b1 = _add_book(session, title="Popular Book 1", genre="Tech")
+    b2 = _add_book(session, title="Popular Book 2", genre="Tech")
+    # User 1 has no reading records
+    cb = ContentBasedRecommender(db=session)
+    recs = cb.recommend(user_id=1, n=10)
+    assert len(recs) == 2
+    assert [r.book_id for r in recs] == [b1.id, b2.id]
+    assert "Popular" in recs[0].reason
+
+
+def test_content_based_recommender_genre_affinity_acceptance_criterion(session):
+    """FR-R2 Acceptance Criterion:
+
+    For a user who finished several books of one genre, at least 3 of the top 5 share it.
+    """
+    # Seed 6 Sci-Fi books
+    scifi_books = [
+        _add_book(
+            session,
+            title="Dune Chronicles",
+            genre="Sci-Fi",
+            description="Epic space opera dune sand planet spice desert interstellar empire",
+        ),
+        _add_book(
+            session,
+            title="Foundation and Empire",
+            genre="Sci-Fi",
+            description="Galactic empire psychohistory Hari Seldon mathematics future galaxy",
+        ),
+        _add_book(
+            session,
+            title="Neuromancer Matrix",
+            genre="Sci-Fi",
+            description="Cyberpunk artificial intelligence hacker cyberspace matrix virtual",
+        ),
+        _add_book(
+            session,
+            title="Hyperion Cantos",
+            genre="Sci-Fi",
+            description="Time tombs pilgrimage shrike space warfare Hegemony of Man",
+        ),
+        _add_book(
+            session,
+            title="Solaris Station",
+            genre="Sci-Fi",
+            description="Living sentient ocean planet research station astronaut spacecraft",
+        ),
+        _add_book(
+            session,
+            title="Snow Crash",
+            genre="Sci-Fi",
+            description="Metaverse hacker pizza delivery virtual reality cyber futuristic",
+        ),
+    ]
+
+    # Seed books of other genres
+    other_books = [
+        _add_book(
+            session,
+            title="Pride and Prejudice",
+            genre="Romance",
+            description="Elizabeth Bennet Mr Darcy classic regency romance estate marriage love",
+        ),
+        _add_book(
+            session,
+            title="Sense and Sensibility",
+            genre="Romance",
+            description="Dashwood sisters romantic courtship inheritance English society love",
+        ),
+        _add_book(
+            session,
+            title="The French Chef Cookbook",
+            genre="Cooking",
+            description="Delicious french recipes gourmet pastry baking cuisine kitchen dinner",
+        ),
+        _add_book(
+            session,
+            title="Joy of Cooking",
+            genre="Cooking",
+            description="Home cooking recipes meals breakfast lunch dinner roasted chicken",
+        ),
+    ]
+
+    # User 42 has finished 2 Sci-Fi books
+    user_id = 42
+    _add_record(session, user_id=user_id, book_id=scifi_books[0].id, status=FINISHED)
+    _add_record(session, user_id=user_id, book_id=scifi_books[1].id, status=FINISHED)
+
+    cb = ContentBasedRecommender(db=session)
+    recs = cb.recommend(user_id=user_id, n=5)
+
+    # Must return 5 recommendations
+    assert len(recs) == 5
+
+    # Finished books must be excluded (FR-R4)
+    rec_bids = [r.book_id for r in recs]
+    assert scifi_books[0].id not in rec_bids
+    assert scifi_books[1].id not in rec_bids
+
+    # Acceptance criterion: At least 3 of the top 5 share the finished genre ('Sci-Fi')
+    catalog_map = {b.id: b.genre for b in scifi_books + other_books}
+    rec_genres = [catalog_map[bid] for bid in rec_bids]
+    scifi_count = sum(1 for g in rec_genres if g == "Sci-Fi")
+    assert scifi_count >= 3, f"Expected >= 3 Sci-Fi books in top 5, got {scifi_count}: {rec_genres}"
+
+    # Scores must be descending
+    scores = [r.score for r in recs]
+    assert scores == sorted(scores, reverse=True)
+    assert all(s > 0 for s in scores[:scifi_count])
+
+
+def test_content_based_recommender_weighted_by_progress(session):
+    """User profile weights vectors by reading progress (finished=1.0, in-progress=percent)."""
+    b_history = _add_book(
+        session,
+        title="Ancient Rome History",
+        genre="History",
+        description="Roman empire emperors legions senate warfare Caesar",
+    )
+    b_tech = _add_book(
+        session,
+        title="Python Data Science",
+        genre="Tech",
+        description="Machine learning data science programming algorithms python code",
+    )
+    b_history_unread = _add_book(
+        session,
+        title="Fall of the Roman Empire",
+        genre="History",
+        description="Decline and fall barbarian invasions Roman legions emperors Caesar",
+    )
+    _add_book(
+        session,
+        title="Deep Learning with Python",
+        genre="Tech",
+        description="Neural networks deep learning artificial intelligence python code",
+    )
+
+    user_id = 55
+    # Finished history book (100% progress)
+    _add_record(session, user_id=user_id, book_id=b_history.id, status=FINISHED)
+    # Just started tech book (5% progress)
+    r2 = ReadingRecordRow(
+        user_id=user_id,
+        book_id=b_tech.id,
+        status=READING,
+        current_page=10,
+        percent=5.0,
+    )
+    session.add(r2)
+    session.commit()
+
+    cb = ContentBasedRecommender(db=session)
+    recs = cb.recommend(user_id=user_id, n=2)
+
+    # History candidate should be ranked higher due to 100% finished progress vs 5%
+    assert len(recs) == 2
+    assert recs[0].book_id == b_history_unread.id
+    assert recs[0].score > recs[1].score
+
+
+def test_content_based_recommender_excludes_deleted_books(session):
+    """FR-R4: Soft-deleted books are never recommended."""
+    b1 = _add_book(session, title="AI Guide", genre="Tech", description="Artificial intelligence")
+    b2 = _add_book(
+        session, title="ML Guide", genre="Tech", description="Machine learning AI", is_deleted=True
+    )
+
+    user_id = 60
+    _add_record(session, user_id=user_id, book_id=b1.id, status=FINISHED)
+
+    cb = ContentBasedRecommender(db=session)
+    recs = cb.recommend(user_id=user_id, n=10)
+    assert b2.id not in [r.book_id for r in recs]
+
+
+def test_content_based_recommender_genre_filter(session):
+    """ContentBasedRecommender supports explicit genre filtering."""
+    b1 = _add_book(session, title="Sci-Fi One", genre="Sci-Fi", description="Space interstellar")
+    _add_book(session, title="Sci-Fi Two", genre="Sci-Fi", description="Space galaxy")
+    b3 = _add_book(session, title="Romantic Sunset", genre="Romance", description="Love romance")
+
+    user_id = 70
+    _add_record(session, user_id=user_id, book_id=b1.id, status=FINISHED)
+
+    cb = ContentBasedRecommender(db=session)
+    recs = cb.recommend(user_id=user_id, n=10, genre="Romance")
+    assert len(recs) == 1
+    assert recs[0].book_id == b3.id
+
+
+def test_get_recommendations_with_content_based_active(session):
+    """End-to-end get_recommendations service uses ContentBasedRecommender."""
+    b1 = _add_book(session, title="Book Alpha", genre="Sci-Fi", description="Alien galaxy space")
+    b2 = _add_book(
+        session, title="Book Beta", genre="Sci-Fi", description="Alien planet space exploration"
+    )
+
+    user_id = 80
+    _add_record(session, user_id=user_id, book_id=b1.id, status=FINISHED)
+
+    set_recommender(ContentBasedRecommender(db=session))
+    items = get_recommendations(user_id=user_id, limit=5, db=session)
+
+    assert len(items) == 1
+    assert items[0]["book_id"] == b2.id
+    assert items[0]["genre"] == "Sci-Fi"
+    assert "interest in Sci-Fi" in items[0]["reason"]
+    assert items[0]["score"] > 0

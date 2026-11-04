@@ -60,3 +60,21 @@ def test_weak_admin_password_does_not_stop_startup(test_db, monkeypatch):
 
     with sessionmaker(test_db)() as session:
         assert session.scalar(select(User)) is None
+
+
+@pytest.mark.parametrize("path, text", [
+    ("/", "Digital Library"),
+    ("/login.html", "Log in"),
+    ("/js/app.js", "bookCard"),
+    ("/css/app.css", ".nav"),
+])
+def test_web_pages_are_served(path, text):
+    response = TestClient(app).get(path)
+
+    assert response.status_code == 200
+    assert text in response.text
+
+
+def test_api_routes_win_over_web_pages():
+    assert TestClient(app).get("/health").json() == {"status": "ok"}
+    assert TestClient(app).get("/no-such-page.html").status_code == 404

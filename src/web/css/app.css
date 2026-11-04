@@ -1,0 +1,49 @@
+/* Shared styles for every page (DLBS-23 app shell). */
+:root {
+  --bg: #f7f7f5; --surface: #fff; --text: #1f2328; --muted: #57606a;
+  --accent: #1f5fbf; --border: #d0d7de; --ok: #1a7f37; --warn: #9a6700; --error: #cf222e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+       background: var(--bg); color: var(--text); }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.nav { background: var(--surface); border-bottom: 1px solid var(--border); }
+.nav ul { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center;
+          max-width: 1100px; margin: 0 auto; padding: 12px 16px; list-style: none; }
+.nav .brand { font-weight: 700; margin-right: auto; text-decoration: none; color: var(--text); }
+.nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; }
+.nav button { font: inherit; color: var(--accent); background: none; border: 0;
+              cursor: pointer; text-decoration: underline; padding: 0; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { margin-top: 8px; font-size: 1.6rem; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        list-style: none; padding: 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+        padding: 12px; display: flex; flex-direction: column; gap: 6px; height: 100%; }
+.card img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px;
+            background: var(--border); }
+.card h3 { font-size: 1rem; margin: 0; }
+.card .author, .muted { color: var(--muted); font-size: .9rem; margin: 0; }
+.card .reason { font-size: .9rem; margin: 0; font-style: italic; }
+
+.badge { display: inline-block; font-size: .8rem; padding: 1px 8px; border-radius: 12px;
+         border: 1px solid currentColor; width: fit-content; }
+.badge.ok { color: var(--ok); }
+.badge.none { color: var(--warn); }
+
+form.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 12px 0; }
+label { display: flex; flex-direction: column; font-size: .9rem; gap: 2px; }
+input, select, textarea, button { font: inherit; }
+input, select, textarea { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+button.primary { background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+                 padding: 7px 14px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+
+.error { color: var(--error); }
+.pager { display: flex; gap: 12px; align-items: center; margin: 16px 0; }
+table { border-collapse: collapse; width: 100%; background: var(--surface); }
+th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }

@@ -9,8 +9,8 @@ Refresh the table on 3 Nov just before closing the sprint, then delete this line
 | Dates | 30 Oct 2026 23:59 IST to 3 Nov 2026 12:00 IST |
 | Goal | Foundation: login and roles, user and reading tables, book catalog CRUD and search, reserve, borrow, return and cancel, baseline recommender with cold start, CI pipeline v1 (build and lint) |
 | Committed | 20 cards, 73 story points |
-| Done | 14 cards, 54 points (74%) |
-| Not done | 6 cards, 19 points |
+| Done | 15 cards, 57 points |
+| Not done | 5 cards, 16 points |
 
 ## Completed
 
@@ -30,6 +30,7 @@ Refresh the table on 3 Nov just before closing the sprint, then delete this line
 | DLBS-46 Reserve with transaction safety | Rushi | 5 | PR #10 |
 | DLBS-48 Test plan and Sprint 1 test cases | Rushi | 3 | |
 | DLBS-49 Borrow, return, cancel | Rushi | 5 | PR #12 |
+| DLBS-50 Booking limit and remaining tests | Rushi | 3 | 99% coverage on src/bookings |
 
 ## Not completed (carry over or finish before close)
 
@@ -40,12 +41,11 @@ Refresh the table on 3 Nov just before closing the sprint, then delete this line
 | DLBS-20 Sprint 1 demo video | Rishyendra | 1 | To Do, blocked by missing `src/main.py` |
 | DLBS-37 Roles and admin-only decorator | Sai | 3 | In Progress (branch `feature/DLBS-37-roles` not merged) |
 | DLBS-47 Seed script for books | Rushi | 2 | In Progress |
-| DLBS-50 Booking limit and remaining tests | Rushi | 3 | In Progress |
 
 ## Test evidence
 
 On `main` at 2 Nov: `ruff check --line-length 100 --select E,F,W,I .` passes and `pytest` runs
-137 tests, all passing. Catalog coverage (`--cov=src/catalog`) is 98%.
+all tests passing. Booking module coverage (`--cov=src/bookings`) is 99%.
 
 ## Integration check (2 Nov)
 

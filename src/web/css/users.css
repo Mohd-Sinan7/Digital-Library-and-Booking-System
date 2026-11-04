@@ -1,0 +1,31 @@
+/* Account and reading pages (DLBS-40): register, profile and My Reading.
+   Loaded after app.css, so it uses the shell's colours. */
+
+form.stack { display: flex; flex-direction: column; gap: 12px; max-width: 360px; margin: 12px 0; }
+form.stack button { align-self: flex-start; }
+.hint { margin: -8px 0 0; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                   clip-path: inset(50%); white-space: nowrap; }
+.saved { color: var(--ok); }
+
+dl.details { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0; }
+dl.details dt { color: var(--muted); }
+dl.details dd { margin: 0; }
+
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+         list-style: none; padding: 0; margin: 12px 0 24px; }
+.stats li { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px; }
+.stats .value { display: block; font-size: 1.6rem; font-weight: 700;
+                font-variant-numeric: tabular-nums; }
+.stats .label { color: var(--muted); font-size: .9rem; }
+
+.reading-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.reading-list .card { height: auto; gap: 8px; }
+.reading-list .controls { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: end; }
+.reading-list form.row { margin: 0; }
+.reading-list input.amount { width: 7em; }
+.reading-list .error:empty { display: none; }
+
+.progress { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.progress progress { flex: 1; max-width: 320px; height: 10px; accent-color: var(--accent); }

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Reading · Digital Library</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/users.css">
+  <script src="/js/app.js"></script>
+</head>
+<body>
+<main>
+  <h1>My Reading</h1>
+  <h2 class="visually-hidden">Statistics</h2>
+  <ul id="stats" class="stats" aria-label="Reading statistics"></ul>
+
+  <form class="row" onsubmit="return false">
+    <label>Show
+      <select id="filter">
+        <option value="">All books</option>
+        <option value="want_to_read">Want to read</option>
+        <option value="reading">Reading</option>
+        <option value="finished">Finished</option>
+      </select>
+    </label>
+  </form>
+  <p id="msg" role="status"></p>
+  <ul id="list" class="reading-list"></ul>
+</main>
+<script>
+  // FR-U5 to FR-U8: the user's books with status and progress, plus reading statistics.
+  const LABELS = { want_to_read: "Want to read", reading: "Reading", finished: "Finished" };
+  const list = document.getElementById("list");
+  const filter = document.getElementById("filter");
+  const msg = document.getElementById("msg");
+
+  function fail(err, where) {
+    if (err.status === 401) return DL.requireLogin();  // token expired: log in again
+    where.className = "error";
+    where.textContent = err.message.replace(/Value error, /g, "").replace(/current_page/g, "Page");
+  }
+
+  function showStats(s) {
+    const tiles = [
+      ["Finished", s.books_finished], ["Reading", s.books_reading],
+      ["Want to read", s.books_want_to_read], ["Pages read", s.pages_read],
+    ];
+    document.getElementById("stats").innerHTML = tiles.map(([label, value]) =>
+      `<li><span class="value">${DL.esc(value)}</span><span class="label">${label}</span></li>`
+    ).join("");
+  }
+
+  function progressText(item) {
+    const percent = Math.round(Number(item.percent) || 0);
+    return item.current_page ? `Page ${item.current_page} · ${percent}%` : `${percent}%`;
+  }
+
+  function row(item) {
+    const options = Object.entries(LABELS).map(([value, text]) =>
+      `<option value="${value}"${value === item.status ? " selected" : ""}>${text}</option>`
+    ).join("");
+    const title = DL.esc(item.title);
+    const genre = item.genre ? ` · ${DL.esc(item.genre)}` : "";
+    return `<li class="card" data-book="${DL.esc(item.book_id)}" data-title="${title}">
+      <h3><a href="/book.html?id=${encodeURIComponent(item.book_id)}">${title}</a></h3>
+      <p class="author">${DL.esc(item.author)}${genre}</p>
+      <div class="progress">
+        <progress max="100" value="${Number(item.percent) || 0}"
+                  aria-label="Progress of ${title}"></progress>
+        <span>${progressText(item)}</span>
+      </div>
+      <div class="controls">
+        <label>Status
+          <select class="status" aria-label="Status of ${title}">${options}</select>
+        </label>
+        <form class="row progress-form" novalidate>
+          <label>Progress
+            <input class="amount" type="number" min="0" step="1" inputmode="decimal"
+                   aria-label="New progress for ${title}">
+          </label>
+          <label>As
+            <select class="unit"><option value="page">Page</option><option value="percent">%</option></select>
+          </label>
+          <button class="primary" type="submit">Save</button>
+        </form>
+      </div>
+      <p class="error" role="alert"></p>
+    </li>`;
+  }
+
+  async function load() {
+    try {
+      const query = filter.value ? "?status=" + encodeURIComponent(filter.value) : "";
+      const [stats, history] = await Promise.all([
+        DL.api("/api/reading/stats"), DL.api("/api/reading/history" + query),
+      ]);
+      showStats(stats);
+      list.innerHTML = history.items.map(row).join("");
+      if (!history.items.length) {
+        list.innerHTML = filter.value
+          ? `<li class="muted">No books with this status.</li>`
+          : `<li class="muted">Nothing here yet. Open a book from the
+             <a href="/catalog.html">catalog</a> and choose a reading status.</li>`;
+      }
+    } catch (err) {
+      fail(err, msg);
+    }
+  }
+
+  // Sends one change, then reloads the list and the statistics.
+  async function save(li, path, method, body, done) {
+    const error = li.querySelector(".error");
+    const controls = li.querySelectorAll("select, input, button");
+    error.textContent = "";
+    msg.textContent = "";
+    controls.forEach((el) => { el.disabled = true; });
+    try {
+      await DL.api(path, { method, body });
+      await load();
+      msg.className = "saved";
+      msg.textContent = done;
+    } catch (err) {
+      controls.forEach((el) => { el.disabled = false; });
+      fail(err, error);
+    }
+  }
+
+  list.addEventListener("change", (e) => {
+    const li = e.target.closest("li");
+    if (e.target.matches(".unit")) {
+      const amount = li.querySelector(".amount");
+      amount.step = e.target.value === "page" ? "1" : "any";
+      amount.max = e.target.value === "page" ? "" : "100";
+    } else if (e.target.matches(".status")) {
+      save(li, "/api/reading/status", "PUT",
+        { book_id: Number(li.dataset.book), status: e.target.value },
+        `${li.dataset.title}: ${LABELS[e.target.value]}.`);
+    }
+  });
+
+  list.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const li = e.target.closest("li");
+    const amount = li.querySelector(".amount").value;
+    const unit = li.querySelector(".unit").value;
+    if (amount === "" || Number(amount) < 0) {
+      li.querySelector(".error").textContent = "Enter a page number or a percentage.";
+      return;
+    }
+    const body = { book_id: Number(li.dataset.book) };
+    body[unit === "page" ? "current_page" : "percent"] = Number(amount);
+    save(li, "/api/reading/progress", "POST", body, `${li.dataset.title}: progress saved.`);
+  });
+
+  filter.addEventListener("change", () => { msg.textContent = ""; load(); });
+
+  if (DL.requireLogin()) load();
+</script>
+</body>
+</html>

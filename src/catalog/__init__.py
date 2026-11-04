@@ -6,6 +6,14 @@ from src.catalog.service import (
     get_availability,
     get_book,
     get_books,
+    get_genres,
 )
 
-__all__ = ["change_available_copies", "create_book", "get_availability", "get_book", "get_books"]
+__all__ = [
+    "change_available_copies",
+    "create_book",
+    "get_availability",
+    "get_book",
+    "get_books",
+    "get_genres",
+]

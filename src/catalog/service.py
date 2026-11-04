@@ -98,6 +98,13 @@ def get_book(book_id: int, include_deleted: bool = False, db: Session | None = N
         return to_dict(book, include_deleted)
 
 
+def get_genres(db: Session | None = None) -> list[str]:
+    """Distinct genres of non-deleted books, sorted, for the catalog filter (FR-C5)."""
+    with _session(db) as s:
+        query = select(Book.genre).where(Book.is_deleted.is_(False)).distinct().order_by(Book.genre)
+        return list(s.scalars(query))
+
+
 def _availability(book: Book) -> dict:
     return {
         "book_id": book.id,

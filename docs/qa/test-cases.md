@@ -29,6 +29,7 @@
 | **TC-B16** | FR-B7 | User 1 has 3 bookings (1 reserved, 1 borrowed, 1 returned). | User 1 calls `GET /api/bookings/me` with bearer token. | Returns list of 3 bookings belonging to User 1, sorted newest first. | 200 OK; array of 3 booking objects matching User 1's ID. | **Pass** |
 | **TC-B17** | BR-04 | User A tries to borrow or return User B's booking. | User A calls `POST /api/bookings/{id_of_user_b}/borrow`. | Rejected with HTTP 409 Conflict or 403 Forbidden. | Rejected with 409 Conflict (`Cannot borrow another member's booking`). | **Pass** |
 | **TC-B18** | DLBS-47 | `data/books_sample.csv` exists with 20 books. | Execute `scripts/seed.py` via `seed_books(sample=True)` or CLI. | 20 books loaded via Member 2's `create_book`; shared `book_id` preserved as primary key `id`; idempotency skips existing on re-run. | 20 books loaded; `Book.id == CSV book_id`; re-run skips without duplicate error. | **Pass** |
+| **TC-B19** | FR-B8 / DLBS-50 | Member holds mixed active bookings (e.g. 3 reserved and 2 borrowed). | Member attempts 6th booking via `POST /api/bookings`; returns 1 book and retries. | 6th attempt rejected with HTTP 409 Conflict; after return, reservation succeeds (HTTP 201). | Rejected with 409 Conflict: `A member may have at most 5 active bookings`; succeeds after return. | **Pass** |
 
 ---
 
@@ -76,6 +77,7 @@
 | **TC-R02** | FR-R2 | User requests recommendations. | Inspect returned recommendation objects. | Each recommendation contains `book_id`, `score` (float), and `reason` (string). | Frozen dataclass `Recommendation` validated with score and human reason. | **Pass** |
 | **TC-R03** | NFR-R2 | Custom or baseline recommender implemented. | Verify algorithm class inherits from `BaseRecommender`. | Implements abstract methods `fit(data)` and `recommend(user_id, top_n)`. | Consistent interface adherence verified. | **Pass** |
 | **TC-R04** | FR-R5 | Dataset generation script executed (`scripts/prepare_dataset.py`). | Run `prepare_dataset.py` and inspect `data/books.csv`, `data/users.csv`, `data/reading_records.csv`. | All files present, correctly structured, foreign keys align (`book_id`, `user_id`). | Validated by `tests/test_dataset.py` (5 tests passed). | **Pass** |
+| **TC-R05** | FR-R2 | User finished several books of one genre (e.g. Sci-Fi). | Request top 5 recommendations via `recommend(user_id, n=5)`. | At least 3 of top 5 share finished genre; finished/deleted books excluded. | Validated: >=3 of top 5 share genre, finished excluded, scores sorted descending. | **Pass** |
 
 ---
 
@@ -86,7 +88,7 @@
 - **Regression Pass Rate:** **100% (142 / 142 passed)**.
 - **Critical Defects Open:** **0**.
 - **Module Coverage:**
-  - `src/bookings`: **93%** (exceeds $\ge 70\%$ requirement).
+  - `src/bookings`: **99%** (exceeds $\ge 70\%$ requirement NFR-B3).
   - `src/users`: **91%**.
   - `src/catalog`: **88%**.
   - `src/recommender`: **89%**.

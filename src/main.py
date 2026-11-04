@@ -11,9 +11,11 @@ account from ADMIN_EMAIL and ADMIN_PASSWORD (FR-U3).
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()  # before the modules below read settings such as DATABASE_URL and JWT_SECRET
 
@@ -59,6 +61,9 @@ def create_app() -> FastAPI:
         """Liveness check used by the deployment smoke test."""
         return {"status": "ok"}
 
+    # Web pages (DLBS-23). Mounted last so every /api route and /health is matched first.
+    web = Path(__file__).parent / "web"
+    app.mount("/", StaticFiles(directory=web, html=True), name="web")
     return app
 
 

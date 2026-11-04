@@ -617,9 +617,17 @@ class Recommender(ABC):
 To swap or test algorithms without touching calling code or routes:
 
 ```python
-from src.recommender import set_recommender, MyNewRecommender
+from src.recommender import (
+    set_recommender,
+    ContentBasedRecommender,
+    PopularityRecommender,
+)
 
-set_recommender(MyNewRecommender())
+# Active recommender: ContentBasedRecommender with TF-IDF (FR-R2, DLBS-11)
+set_recommender(ContentBasedRecommender())
+
+# Pluggable baseline: PopularityRecommender (FR-R3)
+set_recommender(PopularityRecommender())
 ```
 
 ### In-process function: recommender.get_recommendations(user_id, limit=10)

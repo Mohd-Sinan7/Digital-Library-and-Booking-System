@@ -5,6 +5,7 @@ interface (NFR-R2).
 """
 
 from src.recommender.base import Recommendation, Recommender
+from src.recommender.content_based import ContentBasedRecommender
 from src.recommender.popularity import PopularityRecommender
 from src.recommender.service import (
     get_recommendations,
@@ -14,6 +15,7 @@ from src.recommender.service import (
 )
 
 __all__ = [
+    "ContentBasedRecommender",
     "PopularityRecommender",
     "Recommendation",
     "Recommender",

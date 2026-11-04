@@ -76,6 +76,7 @@
 | **TC-R02** | FR-R2 | User requests recommendations. | Inspect returned recommendation objects. | Each recommendation contains `book_id`, `score` (float), and `reason` (string). | Frozen dataclass `Recommendation` validated with score and human reason. | **Pass** |
 | **TC-R03** | NFR-R2 | Custom or baseline recommender implemented. | Verify algorithm class inherits from `BaseRecommender`. | Implements abstract methods `fit(data)` and `recommend(user_id, top_n)`. | Consistent interface adherence verified. | **Pass** |
 | **TC-R04** | FR-R5 | Dataset generation script executed (`scripts/prepare_dataset.py`). | Run `prepare_dataset.py` and inspect `data/books.csv`, `data/users.csv`, `data/reading_records.csv`. | All files present, correctly structured, foreign keys align (`book_id`, `user_id`). | Validated by `tests/test_dataset.py` (5 tests passed). | **Pass** |
+| **TC-R05** | FR-R2 | User finished several books of one genre (e.g. Sci-Fi). | Request top 5 recommendations via `recommend(user_id, n=5)`. | At least 3 of top 5 share finished genre; finished/deleted books excluded. | Validated: >=3 of top 5 share genre, finished excluded, scores sorted descending. | **Pass** |
 
 ---
 

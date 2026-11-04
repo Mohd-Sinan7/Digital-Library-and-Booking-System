@@ -242,6 +242,9 @@ Response `200`:
 {"books_finished": 4, "books_reading": 2, "books_want_to_read": 5, "pages_read": 1260}
 ```
 
+A user with no records gets zeros. A finished book counts all of its pages, because
+setting `finished` moves `current_page` to the last page.
+
 ### In-process function: reading.get_history(user_id)
 
 Member 1's recommender calls this Python function directly instead of the REST

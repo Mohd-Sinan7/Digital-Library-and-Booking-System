@@ -220,10 +220,43 @@ def test_unknown_status_filter_is_422(client):
     assert client.get("/api/reading/history?status=abandoned", headers=ASHA).status_code == 422
 
 
+# GET /api/reading/stats (FR-U8)
+
+def test_stats_are_zero_without_records(client):
+    response = client.get("/api/reading/stats", headers=ASHA)
+
+    assert response.status_code == 200
+    assert response.json() == {"books_finished": 0, "books_reading": 0,
+                               "books_want_to_read": 0, "pages_read": 0}
+
+
+def test_stats_count_books_by_status_and_sum_pages_read(client, session):
+    session.add_all([
+        ReadingRecordRow(user_id=1, book_id=42, status=READING, current_page=120, percent=37.5),
+        ReadingRecordRow(user_id=1, book_id=7, status=FINISHED, current_page=400, percent=100),
+        ReadingRecordRow(user_id=1, book_id=9, status=WANT_TO_READ),
+        ReadingRecordRow(user_id=2, book_id=42, status=FINISHED, current_page=320, percent=100),
+    ])
+    session.commit()
+
+    assert client.get("/api/reading/stats", headers=ASHA).json() == {
+        "books_finished": 1, "books_reading": 1, "books_want_to_read": 1, "pages_read": 520}
+
+
+def test_stats_follow_status_and_progress_changes(client):
+    set_status(client, 7, FINISHED)
+    progress(client, current_page=120)
+    progress(client, current_page=200)
+
+    assert client.get("/api/reading/stats", headers=ASHA).json() == {
+        "books_finished": 1, "books_reading": 1, "books_want_to_read": 0, "pages_read": 600}
+
+
 @pytest.mark.parametrize("method, path", [
     ("put", "/api/reading/status"),
     ("post", "/api/reading/progress"),
     ("get", "/api/reading/history"),
+    ("get", "/api/reading/stats"),
 ])
 def test_reading_endpoints_need_a_token(client, method, path):
     assert client.request(method, path).status_code == 401

@@ -1,4 +1,4 @@
-"""REST endpoints for reading status, progress and history (FR-U5, FR-U6, FR-U7)."""
+"""REST endpoints for reading status, progress, history and statistics (FR-U5 to FR-U8)."""
 
 from typing import Literal
 
@@ -76,3 +76,9 @@ def history(
 ):
     """The current user's reading history, newest first (FR-U7). Optional ?status= filter."""
     return {"items": reading.list_history(user.id, db, status_filter)}
+
+
+@router.get("/stats")
+def stats(user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The current user's reading statistics (FR-U8)."""
+    return reading.get_stats(user.id, db)

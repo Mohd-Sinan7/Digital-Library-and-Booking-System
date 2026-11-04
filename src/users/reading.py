@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.catalog import get_book
@@ -118,6 +118,29 @@ def list_history(user_id: int, db: Session, status: str | None = None) -> list[d
     if status is not None:
         query = query.where(ReadingRecordRow.status == status)
     return [to_dict(row, book.title, book.author, book.genre) for row, book in db.execute(query)]
+
+
+def get_stats(user_id: int, db: Session) -> dict:
+    """The user's reading statistics (FR-U8): books per status and pages read.
+
+    pages_read is the sum of current_page over all of the user's records.
+    """
+    rows = db.execute(
+        select(
+            ReadingRecordRow.status,
+            func.count(),
+            func.coalesce(func.sum(ReadingRecordRow.current_page), 0),
+        )
+        .where(ReadingRecordRow.user_id == user_id)
+        .group_by(ReadingRecordRow.status)
+    ).all()
+    books = {status: count for status, count, _pages in rows}
+    return {
+        "books_finished": books.get(FINISHED, 0),
+        "books_reading": books.get(READING, 0),
+        "books_want_to_read": books.get(WANT_TO_READ, 0),
+        "pages_read": sum(pages for _status, _count, pages in rows),
+    }
 
 
 def _catalog_book(book_id: int, db: Session) -> dict:

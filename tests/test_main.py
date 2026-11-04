@@ -34,6 +34,7 @@ def test_health():
     "/api/reading/status",
     "/api/reading/progress",
     "/api/reading/history",
+    "/api/reading/stats",
     "/api/books",
     "/api/bookings",
     "/api/recommendations/me",

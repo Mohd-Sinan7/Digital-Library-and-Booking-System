@@ -95,6 +95,19 @@ You need Python 3.11 or newer.
 
 6. Open http://127.0.0.1:8000/docs to try the API.
 
+## Run with Docker
+
+With Docker Desktop running, from the repository root:
+
+```bash
+docker compose up --build
+```
+
+This starts the app and a PostgreSQL database and seeds the 20 sample books. Open
+http://localhost:8000 for the web pages and http://localhost:8000/docs for the API. To
+create the admin account, put `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` first. Stop
+with `docker compose down` (add `--volumes` to delete the database too).
+
 ## How to test
 
 From the repository root:
@@ -107,7 +120,9 @@ pytest --cov=src --cov-report=term-missing --cov-fail-under=50
 
 GitHub Actions (`.github/workflows/ci.yml`) builds, lints and tests every push and
 pull request. It fails if a test fails or if total coverage of `src/` is below the gate
-(50% from 5 Nov, 70% by 7 Nov). See `.github/workflows/README.md`.
+(50% from 5 Nov, 70% by 7 Nov). It then builds the Docker image and smoke-tests it, and
+after a merge to `main` it deploys to Render and smoke-tests the live app. See
+`.github/workflows/README.md`.
 
 ## Contributing
 

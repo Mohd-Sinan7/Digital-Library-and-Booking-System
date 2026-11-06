@@ -4,6 +4,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:  # Actions tab -> CI -> Run workflow: on main, deploys again
 
 jobs:
   ci:
@@ -56,3 +57,69 @@ jobs:
           name: coverage-report
           path: coverage.xml
           retention-days: 14
+
+  docker:
+    name: docker
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Build the image and start it with PostgreSQL
+        run: docker compose up --build --detach --wait
+        env:
+          APP_VERSION: ${{ github.sha }}
+
+      - name: Smoke test
+        run: >-
+          python3 scripts/smoke_test.py http://localhost:8000
+          --version "$GITHUB_SHA" --timeout 120 --interval 5
+
+      - name: Show the app's log
+        if: ${{ !cancelled() }}
+        run: docker compose logs app
+
+      - name: Stop
+        if: ${{ always() }}
+        run: docker compose down --volumes
+
+  deploy:
+    name: deploy
+    needs: [ci, docker]
+    # Only for main: a merged pull request, or a manual run from the Actions tab.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Check the deploy settings
+        id: settings
+        run: |
+          if [ -z "$DEPLOY_HOOK" ] || [ -z "$APP_URL" ]; then
+            echo "::warning::Not deployed. Add the RENDER_DEPLOY_HOOK_URL secret and the APP_URL variable (see .github/workflows/README.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy this commit
+        if: steps.settings.outputs.ready == 'true'
+        run: curl --fail --silent --show-error --request POST "${DEPLOY_HOOK}&ref=${GITHUB_SHA}"
+
+      - name: Smoke test the deployed app
+        if: steps.settings.outputs.ready == 'true'
+        run: >-
+          python3 scripts/smoke_test.py "$APP_URL"
+          --version "$GITHUB_SHA" --timeout 1200 --interval 20

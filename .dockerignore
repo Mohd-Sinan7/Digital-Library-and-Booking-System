@@ -1,0 +1,21 @@
+# Keep the image small and free of secrets: only what the Dockerfile copies is needed.
+.git
+.github
+.venv
+venv
+env
+.env
+.env.*
+**/__pycache__
+*.py[cod]
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache
+.ruff_cache
+.coverage
+coverage.xml
+htmlcov
+Lab*
+docs
+tests

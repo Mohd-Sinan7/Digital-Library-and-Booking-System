@@ -10,11 +10,12 @@ account from ADMIN_EMAIL and ADMIN_PASSWORD (FR-U3).
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()  # before the modules below read settings such as DATABASE_URL and JWT_SECRET
@@ -57,8 +58,16 @@ def create_app() -> FastAPI:
         app.include_router(router)
 
     @app.get("/health")
-    def health():
-        """Liveness check used by the deployment smoke test."""
+    def health(response: Response):
+        """Liveness check used by the deployment smoke test.
+
+        The X-App-Version header names the running commit, so after a deploy the smoke
+        test can wait until the new version answers. Render sets RENDER_GIT_COMMIT;
+        other hosts can set APP_VERSION.
+        """
+        response.headers["X-App-Version"] = (
+            os.getenv("APP_VERSION") or os.getenv("RENDER_GIT_COMMIT") or "dev"
+        )
         return {"status": "ok"}
 
     # Web pages (DLBS-23). Mounted last so every /api route and /health is matched first.

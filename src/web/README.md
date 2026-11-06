@@ -6,7 +6,8 @@ Owner of the shell: Member 2. Each module owner adds their own screen.
 ## Adding your page
 
 Copy this skeleton to `src/web/<page>.html`. The nav bar links to `reading.html` (Member 3),
-`bookings.html` (Member 4) and `profile.html` (Member 3).
+`bookings.html` (Member 4) and `profile.html` (Member 3). `register.html` (Member 3) is
+linked from the login page. Member 3's pages also load `css/users.css`.
 
 ```html
 <!doctype html>

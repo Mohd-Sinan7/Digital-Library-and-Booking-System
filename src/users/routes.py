@@ -1,7 +1,9 @@
-"""REST endpoints for registration, login and logout (FR-U1, FR-U2)."""
+"""REST endpoints for registration, login, logout and the user's profile (FR-U1 to FR-U4)."""
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 from sqlalchemy.orm import Session
 
 from src.db import SessionLocal
@@ -10,6 +12,7 @@ from src.users.auth import JWT_EXPIRE_MINUTES, CurrentUser, create_access_token,
 from src.users.models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+profile_router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 def get_db():
@@ -37,6 +40,13 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class ProfileUpdate(BaseModel):
+    # Only the name can change; sending email or role is rejected with 422.
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
 def user_json(user: User) -> dict:
@@ -77,3 +87,30 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 def logout(user: CurrentUser = Depends(get_current_user)):
     """Log out (FR-U2). Tokens are stateless, so the client deletes its stored token."""
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _account(db: Session, user: CurrentUser) -> User:
+    account = db.get(User, user.id)
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return account
+
+
+@profile_router.get("/me")
+def get_profile(user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The current user's profile and role (FR-U3, FR-U4), read from the database."""
+    return user_json(_account(db, user))
+
+
+@profile_router.put("/me")
+def update_profile(
+    body: ProfileUpdate,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change the current user's name (FR-U4). Email and role cannot be changed here."""
+    account = _account(db, user)
+    account.name = body.name
+    db.commit()
+    db.refresh(account)
+    return user_json(account)

@@ -158,6 +158,10 @@ Request:
 
 Response `200`: the updated profile, same shape as `GET /api/users/me`.
 
+Errors: `422` blank name, a name over 100 characters, or a body that also sends `email`
+or `role`. The token still carries the old name until the next login, so read the name
+from `GET /api/users/me`.
+
 ### Reading record
 
 `PUT /api/reading/status`, `POST /api/reading/progress` and
@@ -191,9 +195,11 @@ Request:
 {"book_id": 42, "status": "reading"}
 ```
 
-Response `200`: the reading record.
+Response `200`: the reading record. Moving to `reading` or `finished` sets `started_at`
+if it is empty. `finished` also sets `current_page` to the book's `page_count` and
+`percent` to 100, so the book counts fully in the statistics.
 
-Errors: `404` book not found; `422` unknown status.
+Errors: `404` book not found or removed; `422` unknown status.
 
 ### POST /api/reading/progress
 
@@ -208,7 +214,9 @@ Records progress for a book (FR-U6). Send exactly one of `current_page` or `perc
 ```
 
 Response `200`: the reading record. Recording progress on a `want_to_read` book moves
-it to `reading`. Reaching 100% moves it to `finished`.
+it to `reading`. Reaching 100% moves it to `finished`, and progress below 100% on a
+`finished` book moves it back to `reading`. The other field is calculated from the
+book's `page_count`: page 120 of 320 is 37.5%, and 37.5% of 320 pages is page 120.
 
 Errors: `404` book not found; `422` when both or neither field is sent, `percent` is
 below 0 or above 100, or `current_page` is below 0 or above the book's `page_count`.
@@ -225,6 +233,8 @@ Response `200`:
 {"items": [ /* reading records */ ]}
 ```
 
+Books removed from the catalog stay in the history. Errors: `422` unknown status filter.
+
 ### GET /api/reading/stats
 
 The current user's reading statistics (FR-U8). `pages_read` is the sum of
@@ -235,6 +245,9 @@ Response `200`:
 ```json
 {"books_finished": 4, "books_reading": 2, "books_want_to_read": 5, "pages_read": 1260}
 ```
+
+A user with no records gets zeros. A finished book counts all of its pages, because
+setting `finished` moves `current_page` to the last page.
 
 ### In-process function: reading.get_history(user_id)
 

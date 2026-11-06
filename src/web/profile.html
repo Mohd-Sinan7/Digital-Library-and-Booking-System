@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile · Digital Library</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/users.css">
+  <script src="/js/app.js"></script>
+</head>
+<body>
+<main>
+  <h1>Profile</h1>
+  <dl class="details">
+    <dt>Email</dt><dd id="email">…</dd>
+    <dt>Role</dt><dd id="role">…</dd>
+  </dl>
+  <form id="profile" class="stack" novalidate>
+    <label>Name <input id="name" autocomplete="name" maxlength="100" required></label>
+    <button class="primary" type="submit" disabled>Save name</button>
+  </form>
+  <p id="msg" role="status"></p>
+  <p>Your books and reading statistics are on <a href="/reading.html">My Reading</a>.</p>
+</main>
+<script>
+  // FR-U4: view the profile and change the name. Email and role are shown, not editable.
+  const form = document.getElementById("profile");
+  const nameInput = document.getElementById("name");
+  const button = form.querySelector("button");
+  const msg = document.getElementById("msg");
+
+  function show(user) {
+    document.getElementById("email").textContent = user.email;
+    document.getElementById("role").textContent = user.role === "admin" ? "Admin" : "Member";
+    nameInput.value = user.name;
+    // Keep the nav bar's name in step: app.js reads the logged-in user from dl_user.
+    try { localStorage.setItem("dl_user", JSON.stringify(user)); } catch { /* storage blocked */ }
+    const navName = document.querySelector(".nav .muted");
+    if (navName) navName.textContent = user.name;
+  }
+
+  function fail(err) {
+    if (err.status === 401) return DL.requireLogin();  // token expired: log in again
+    msg.className = "error";
+    msg.textContent = err.message.replace(/Value error, /g, "");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.textContent = "";
+    const name = nameInput.value.trim();
+    if (!name) return fail(new Error("Enter your name."));
+    button.disabled = true;
+    try {
+      show(await DL.api("/api/users/me", { method: "PUT", body: { name } }));
+      msg.className = "saved";
+      msg.textContent = "Name saved.";
+    } catch (err) {
+      fail(err);
+    }
+    button.disabled = false;
+  });
+
+  if (DL.requireLogin()) {
+    DL.api("/api/users/me").then((user) => { show(user); button.disabled = false; }, fail);
+  }
+</script>
+</body>
+</html>

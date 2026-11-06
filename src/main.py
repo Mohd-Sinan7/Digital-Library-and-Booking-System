@@ -29,6 +29,8 @@ def create_app() -> FastAPI:
     from src.bookings.routes import router as bookings_router
     from src.catalog.routes import router as catalog_router
     from src.recommender.routes import router as recommender_router
+    from src.users.reading_routes import router as reading_router
+    from src.users.routes import profile_router
     from src.users.routes import router as users_router
     from src.users.service import ensure_admin_account
 
@@ -43,7 +45,15 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title="Digital Library and Booking System", lifespan=lifespan)
-    for router in (users_router, catalog_router, bookings_router, recommender_router):
+    routers = (
+        users_router,
+        profile_router,
+        reading_router,
+        catalog_router,
+        bookings_router,
+        recommender_router,
+    )
+    for router in routers:
         app.include_router(router)
 
     @app.get("/health")

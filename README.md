@@ -102,12 +102,12 @@ From the repository root:
 ```bash
 pip install -r requirements.txt
 ruff check --line-length 100 --select E,F,W,I .
-pytest
+pytest --cov=src --cov-report=term-missing --cov-fail-under=50
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) builds and lints every push and pull
-request. Unit tests join the pipeline in Sprint 2; until then, run `pytest`
-locally before you open a pull request.
+GitHub Actions (`.github/workflows/ci.yml`) builds, lints and tests every push and
+pull request. It fails if a test fails or if total coverage of `src/` is below the gate
+(50% from 5 Nov, 70% by 7 Nov). See `.github/workflows/README.md`.
 
 ## Contributing
 

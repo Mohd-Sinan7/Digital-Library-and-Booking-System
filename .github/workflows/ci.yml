@@ -10,8 +10,8 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     env:
-      # Minimum total test coverage of src/, in percent. 50% from 5 Nov, 70% by 7 Nov.
-      COVERAGE_GATE: "50"
+      # Minimum total test coverage of src/, in percent: 70% from 7 Nov (it was 50% from 5 Nov).
+      COVERAGE_GATE: "70"
     steps:
       - name: Check out code
         uses: actions/checkout@v4

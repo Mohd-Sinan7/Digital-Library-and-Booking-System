@@ -1,5 +1,7 @@
 # Digital Library and Booking System
 
+[![CI](https://github.com/Mohd-Sinan7/Digital-Library-and-Booking-System/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mohd-Sinan7/Digital-Library-and-Booking-System/actions/workflows/ci.yml)
+
 A standalone application for managing a digital book collection. It covers book
 cataloging, borrowing and reservations, user reading history and progress
 tracking, and personalised book recommendations using machine learning.

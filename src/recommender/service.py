@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from src.catalog import service as catalog_service
 from src.recommender.base import Recommender
 from src.recommender.content_based import ContentBasedRecommender
+from src.recommender.scoring import ensure_reason  # FR-R5 safety contract
 
 # Default algorithm instance for Sprint 2 (FR-R2)
 _active_recommender: Recommender = ContentBasedRecommender()
@@ -41,6 +42,9 @@ def get_recommendations(
     Catalog module, and produces complete recommendation cards with title,
     author, cover_url, score, and reason for Member 2's home page.
 
+    Every item is guaranteed to carry a non-empty reason via ensure_reason()
+    before enrichment (FR-R5).
+
     Args:
         user_id: The ID of the user.
         limit: Maximum number of recommendations to return.
@@ -62,6 +66,9 @@ def get_recommendations(
         kwargs["db"] = db
 
     recs = _active_recommender.recommend(**kwargs)  # type: ignore
+
+    # FR-R5: enforce non-empty reason on every item before enrichment
+    recs = ensure_reason(recs)
 
     enriched: list[dict] = []
     for rec in recs:

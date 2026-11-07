@@ -83,7 +83,7 @@ branch `main`.
    | `JWT_SECRET` | click **Generate** |
    | `ADMIN_EMAIL` | the team's admin login |
    | `ADMIN_PASSWORD` | at least 8 characters, with a letter and a digit |
-   | `SEED_BOOKS` | `sample` (20 books), or `full` once the catalog's author column fits all 10,000 books |
+   | `SEED_BOOKS` | `full` (all 10,000 books, loaded in the background on the first start) |
 
    Under **Advanced**: Health Check Path `/health`, Auto-Deploy **No** (the pipeline
    deploys, and only after the tests pass).

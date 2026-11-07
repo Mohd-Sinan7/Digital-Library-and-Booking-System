@@ -103,7 +103,7 @@ With Docker Desktop running, from the repository root:
 docker compose up --build
 ```
 
-This starts the app and a PostgreSQL database and seeds the 20 sample books. Open
+This starts the app and a PostgreSQL database and seeds the 10,000 books. Open
 http://localhost:8000 for the web pages and http://localhost:8000/docs for the API. To
 create the admin account, put `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` first. Stop
 with `docker compose down` (add `--volumes` to delete the database too).

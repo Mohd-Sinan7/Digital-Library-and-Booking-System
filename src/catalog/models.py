@@ -28,7 +28,8 @@ class Book(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255), index=True)
-    author: Mapped[str] = mapped_column(String(255), index=True)
+    # Some books list many co-authors: the longest in data/books.csv is 742 characters.
+    author: Mapped[str] = mapped_column(String(1000), index=True)
     isbn: Mapped[str] = mapped_column(String(13), unique=True, index=True)
     genre: Mapped[str] = mapped_column(String(50), index=True)
     description: Mapped[str] = mapped_column(Text, default="")

@@ -5,7 +5,7 @@
 | `SRS_…pdf`, `SAD_…pdf`, `Test_Plan_…pdf` | The three project deliverables | Whole team |
 | `api-contract.md` | JSON shapes for every endpoint and signatures of in-process functions, agreed on 29 Oct | Everyone, one section each |
 | `deviations.md` | Every change from the submitted SRS, SAD and Test Plan, with the reason | Member 1 (everyone adds lines) |
-| `cicd.md` | The CI/CD pipeline, with a diagram and screenshots (Sprint 2) | Member 3 |
+| `cicd.md` | The CI/CD pipeline: jobs, diagram, deployment and what to show in the presentation | Member 3 |
 | `evaluation.md` | Recommender evaluation: Precision@5 and Recall@5 (Sprint 2) | Member 1 |
 | `standup-log.md` | Daily stand-up notes | Member 2 |
 | `sprint-reports/` | Burndown screenshots and sprint reports | Member 2 |

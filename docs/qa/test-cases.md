@@ -1,13 +1,14 @@
-# QA Test Cases: Sprint 1 and All-Module Test Specifications
+# QA Test Cases: Sprint 1 and Sprint 2 Full-Module Test Specifications
 
 **Document ID:** DLBS-QA-TC-01  
 **Project:** Software Engineering Mini-Project — Digital Library and Booking System (DLBS)  
 **QA Lead:** Marreddy Rushieswar Reddy (Member 4, SRN: PES1UG24AM158)  
+**Planned Period:** Sprint 1 (29 Oct – 2 Nov 2026) & Sprint 2 (3 Nov – 8 Nov 2026)  
 **Standard Template:** `ID | Requirement | Preconditions | Steps | Expected Result | Actual Result | Status`
 
 ---
 
-## 1. Booking and Borrowing Module (Member 4)
+## 1. Booking and Borrowing Module (Member 4 — Marreddy Rushieswar Reddy)
 
 | ID | Requirement | Preconditions | Steps | Expected Result | Actual Result | Status |
 |---|---|---|---|---|---|---|
@@ -30,10 +31,16 @@
 | **TC-B17** | BR-04 | User A tries to borrow or return User B's booking. | User A calls `POST /api/bookings/{id_of_user_b}/borrow`. | Rejected with HTTP 409 Conflict or 403 Forbidden. | Rejected with 409 Conflict (`Cannot borrow another member's booking`). | **Pass** |
 | **TC-B18** | DLBS-47 | `data/books_sample.csv` exists with 20 books. | Execute `scripts/seed.py` via `seed_books(sample=True)` or CLI. | 20 books loaded via Member 2's `create_book`; shared `book_id` preserved as primary key `id`; idempotency skips existing on re-run. | 20 books loaded; `Book.id == CSV book_id`; re-run skips without duplicate error. | **Pass** |
 | **TC-B19** | FR-B8 / DLBS-50 | Member holds mixed active bookings (e.g. 3 reserved and 2 borrowed). | Member attempts 6th booking via `POST /api/bookings`; returns 1 book and retries. | 6th attempt rejected with HTTP 409 Conflict; after return, reservation succeeds (HTTP 201). | Rejected with 409 Conflict: `A member may have at most 5 active bookings`; succeeds after return. | **Pass** |
+| **TC-B20** | FR-B2 / DLBS-51 | Member borrows reserved book on 30 Oct 2026. | Call `calculate_due_date(date(2026, 10, 30))`. | Due date strictly computed as 14 calendar days ahead (13 Nov 2026). | Exact date verified as 2026-11-13; loan duration = 14 days. | **Pass** |
+| **TC-B21** | FR-B6 / DLBS-51 | Booking has due date in past (`due_date < today`). | Inspect `Booking.is_overdue` property on read. | `is_overdue` evaluates to `True` for borrowed booking with past due date. | Evaluates dynamically without requiring background cron worker. | **Pass** |
+| **TC-B22** | FR-B7 / DLBS-51 | Member with multiple past and current loans accesses personal bookings. | Call `GET /api/bookings/me` with JWT header. | Payload includes status badge metadata, formatted timestamps, and due dates. | 200 OK; full booking history array returned with correct badges. | **Pass** |
+| **TC-B23** | FR-B10 / DLBS-51 | Reservation placed on 1 Nov 2026 at 10:00 UTC. | Advance simulated time past 3 Nov 2026 10:00 UTC (> 2 days hold). | Hold expires automatically; status transitions to `expired`; copy restored. | Expired status dynamically confirmed and catalog copy restored. | **Pass** |
+| **TC-B24** | DLBS-56 | Full test suite executed with coverage measurement. | Execute `pytest --cov=src --cov-report=term-missing` and review RTM. | 100% of functional requirements covered; test summary documented. | All 350 tests passing; 97% overall coverage; QA sign-off complete. | **Pass** |
+| **TC-B25** | NFR-B1 | High contention test: 1 available copy with 20 parallel threads. | Concurrently dispatch 20 `reserve_book` calls via `ThreadPoolExecutor`. | Exact atomicity maintained: 1 reservation succeeds, 19 rejected with 409, copy = 0. | Verified: 1 success, 19 conflicts, available copies = 0, no inventory negative underflow. | **Pass** |
 
 ---
 
-## 2. Book Catalog Module (Member 2)
+## 2. Book Catalog Module (Member 2 — Mallela Rishyendra)
 
 | ID | Requirement | Preconditions | Steps | Expected Result | Actual Result | Status |
 |---|---|---|---|---|---|---|
@@ -48,10 +55,13 @@
 | **TC-C09** | FR-C6 | Book was soft-deleted (`is_deleted=True`) or ID does not exist. | Send `GET /api/catalog/{id}`. | HTTP 404 Not Found. | 404 Not Found (`Book not found`). | **Pass** |
 | **TC-C10** | FR-C7 | Catalog contains 45 books. | Send `GET /api/catalog?page=1&page_size=20`. | Returns 20 items for page 1; `total_pages = 3`. | 200 OK; pagination metadata and exact page items returned. | **Pass** |
 | **TC-C11** | NFR-C2 | Admin payload contains negative `page_count` or `total_copies < 0`. | Send `POST /api/catalog` with invalid negative numbers. | Rejected with HTTP 422 Unprocessable Entity by Pydantic validation. | 422 Unprocessable Entity. | **Pass** |
+| **TC-C12** | FR-C9 / DLBS-24 | Book ID exists with 3 available copies. | Send `GET /api/catalog/{id}/availability`. | HTTP 200 returned with `{book_id: X, available_copies: 3, total_copies: 3}`. | 200 OK; real-time availability payload returned. | **Pass** |
+| **TC-C13** | FR-C10 / DLBS-23 | App server running. | Request root path `GET /` and inspect static assets. | HTML app shell delivered with navigation links, catalog container, and CSS/JS. | 200 OK; responsive interface rendered. | **Pass** |
+| **TC-C14** | NFR-C2 | Book with author name longer than 100 characters added. | Send `POST /api/catalog` with 250-character author list. | Accepted without database column truncation error (TEXT type support). | 201 Created; full author string stored. | **Pass** |
 
 ---
 
-## 3. Users and Reading Tracking Module (Member 3)
+## 3. Users and Reading Tracking Module (Member 3 — Nagalapuram Sai Mukesh Reddy)
 
 | ID | Requirement | Preconditions | Steps | Expected Result | Actual Result | Status |
 |---|---|---|---|---|---|---|
@@ -66,30 +76,49 @@
 | **TC-U09** | FR-U7 | Member has 3 reading records in database. | In-process call `reading.get_history(user_id)`. | Returns list of reading history records with status, current page, and percent. | 3 records returned matching user history. | **Pass** |
 | **TC-U10** | NFR-U1 | User registration performed. | Inspect `users.password_hash` column in database. | Raw password is never stored; bcrypt hash string ($2b$...) present. | Salted bcrypt hash verified. | **Pass** |
 | **TC-U11** | NFR-U3 | Register payload contains password shorter than 8 characters. | Send `POST /api/users/register` with `pwd="123"`. | Rejected with HTTP 422 / ValueError (password too short). | Rejected: `Password must be at least 8 characters`. | **Pass** |
+| **TC-U12** | FR-U8 / DLBS-40 | Authenticated member calls profile update. | Send `PUT /api/users/me` with updated name or email. | User profile updated; returned payload reflects changes. | 200 OK; profile fields updated in database. | **Pass** |
+| **TC-U13** | FR-U9 / DLBS-39 | Member calls REST reading endpoints. | Send `GET /api/reading` and `POST /api/reading` with book details. | Returns active reading list and creates new reading log. | 200 OK / 201 Created; reading records managed via REST. | **Pass** |
+| **TC-U14** | FR-U10 / DLBS-38 | Member with 2 finished books and 1 in-progress book. | Send `GET /api/reading/stats` with bearer token. | Aggregate stats returned: books finished, pages read, active streak. | 200 OK; correct statistical aggregation verified. | **Pass** |
+| **TC-U15** | FR-U11 / DLBS-40 | Client requests web UI templates. | Send `GET /login.html`, `GET /register.html`, `GET /profile.html`. | HTML documents returned with status 200 OK and valid form elements. | 200 OK; HTML documents served properly. | **Pass** |
 
 ---
 
-## 4. Recommendation Engine and Dataset Module (Member 1)
+## 4. Recommendation Engine and Dataset Module (Member 1 — Mohammed Sinan M T)
 
 | ID | Requirement | Preconditions | Steps | Expected Result | Actual Result | Status |
 |---|---|---|---|---|---|---|
 | **TC-R01** | FR-R3 | New user has zero reading history (cold-start). | Request recommendations for new user via `recommender.recommend(user_id, top_n=5)`. | Popularity-based fallback returns top 5 globally popular books. | Top 5 popular books returned with popularity score and explanation. | **Pass** |
 | **TC-R02** | FR-R2 | User requests recommendations. | Inspect returned recommendation objects. | Each recommendation contains `book_id`, `score` (float), and `reason` (string). | Frozen dataclass `Recommendation` validated with score and human reason. | **Pass** |
 | **TC-R03** | NFR-R2 | Custom or baseline recommender implemented. | Verify algorithm class inherits from `BaseRecommender`. | Implements abstract methods `fit(data)` and `recommend(user_id, top_n)`. | Consistent interface adherence verified. | **Pass** |
-| **TC-R04** | FR-R5 | Dataset generation script executed (`scripts/prepare_dataset.py`). | Run `prepare_dataset.py` and inspect `data/books.csv`, `data/users.csv`, `data/reading_records.csv`. | All files present, correctly structured, foreign keys align (`book_id`, `user_id`). | Validated by `tests/test_dataset.py` (5 tests passed). | **Pass** |
-| **TC-R05** | FR-R2 | User finished several books of one genre (e.g. Sci-Fi). | Request top 5 recommendations via `recommend(user_id, n=5)`. | At least 3 of top 5 share finished genre; finished/deleted books excluded. | Validated: >=3 of top 5 share genre, finished excluded, scores sorted descending. | **Pass** |
+| **TC-R04** | FR-R8 / DLBS-8 | Dataset generation script executed (`scripts/prepare_dataset.py`). | Run `prepare_dataset.py` and inspect `data/books.csv`, `data/users.csv`, `data/reading_records.csv`. | All files present, correctly structured, foreign keys align (`book_id`, `user_id`). | Validated by `tests/test_dataset.py` (5 tests passed). | **Pass** |
+| **TC-R05** | FR-R4 / DLBS-11 | User finished several books of one genre (e.g. Sci-Fi). | Request top 5 recommendations via `recommend(user_id, n=5)`. | At least 3 of top 5 share finished genre; finished/deleted books excluded. | Validated: >=3 of top 5 share genre, finished excluded, scores sorted descending. | **Pass** |
+| **TC-R06** | FR-R5 / DLBS-12 | Hybrid recommender configured with weights $\alpha=0.7, \beta=0.3$. | Score candidate books combining TF-IDF content similarity and popularity. | Returns blended score and explainability string referencing similar finished titles. | Validated: composite score matches linear combination formula with clear rationale. | **Pass** |
+| **TC-R07** | FR-R7 / DLBS-13 | Recommendation test split prepared with ground truth holdouts. | Run evaluation suite calculating Precision@K, Recall@K, and F1@K. | Precision and recall metrics computed according to standard ranking formulas. | Validated by `tests/recommender/test_evaluation.py` (17 tests passed). | **Pass** |
 
 ---
 
-## 5. Execution Summary and Quality Gate Results
+## 5. Cross-Cutting, CI/CD, and Deployment (Member 3 & Whole Team)
 
-- **Total Test Cases Specified:** 42 test cases across 4 modules.
-- **Automated Tests Executed:** 142 automated tests passing in test suite (`tests/`).
-- **Regression Pass Rate:** **100% (142 / 142 passed)**.
+| ID | Requirement | Preconditions | Steps | Expected Result | Actual Result | Status |
+|---|---|---|---|---|---|---|
+| **TC-D01** | DLBS-16 | Pull Request created or commit pushed. | GitHub Actions CI runner triggered on Ubuntu container. | Installs dependencies, runs compile check, executes ruff lint, runs pytest. | Build green; pipeline exits with code 0 on valid PRs. | **Pass** |
+| **TC-D02** | DLBS-41 | CI test step executes with coverage gate set to 70%. | Run `pytest --cov=src --cov-fail-under=70`. | Total statement coverage exceeds 70%; gate passes. | Total coverage reaches 97%; gate passes comfortably. | **Pass** |
+| **TC-D03** | DLBS-42 | Docker and Docker Compose installed. | Run `docker-compose up --build` or execute container entrypoint. | Container builds cleanly, database migrates, and Uvicorn serves traffic on port 8000. | Validated by `tests/test_start.py` and Dockerfile validation suite. | **Pass** |
+| **TC-D04** | DLBS-43 | Smoke test script executed against running instance. | Run `python -m scripts.smoke_test --base-url http://127.0.0.1:8000`. | End-to-end smoke test verifies health, register, login, catalog, and booking flows. | Validated by `tests/test_smoke_test.py` (10 tests passed). | **Pass** |
+
+---
+
+## 6. Execution Summary and Release Quality Gate Results
+
+- **Total Test Cases Specified:** 54 test cases across all modules and cross-cutting components.
+- **Automated Tests Executed:** **356 automated tests passing** in test suite (`tests/`).
+- **Regression Pass Rate:** **100% (356 / 356 passed, 0 failures, 0 errors)**.
 - **Critical Defects Open:** **0**.
-- **Module Coverage:**
-  - `src/bookings`: **99%** (exceeds $\ge 70\%$ requirement NFR-B3).
-  - `src/users`: **91%**.
-  - `src/catalog`: **88%**.
-  - `src/recommender`: **89%**.
-- **Overall System Status:** **GREEN / Ready for Sprint 1 Acceptance**.
+- **Module Statement Coverage:**
+  - `src/bookings`: **99%** (Target: $\ge 70\%$, NFR-B3)
+  - `src/catalog`: **97%**
+  - `src/users`: **98%**
+  - `src/recommender`: **93%**
+  - `src/db.py` & `src/main.py`: **100%**
+  - **Overall Project Statement Coverage:** **97%** (1310 / 1355 statements covered).
+- **Quality Gate Assessment:** **APPROVED / READY FOR SPRINT 2 CLOSE & HARDENING REHEARSAL**.

@@ -28,7 +28,7 @@ coverage cannot be merged.
 To check your branch before pushing, from the repository root:
 
 ```bash
-pytest --cov=src --cov-report=term-missing --cov-fail-under=50
+pytest --cov=src --cov-report=term-missing --cov-fail-under=70
 ```
 
 `term-missing` lists the line numbers your tests do not reach.

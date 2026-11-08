@@ -104,7 +104,7 @@ From the repository root:
 ```bash
 pip install -r requirements.txt
 ruff check --line-length 100 --select E,F,W,I .
-pytest --cov=src --cov-report=term-missing --cov-fail-under=50
+pytest --cov=src --cov-report=term-missing --cov-fail-under=70
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) builds, lints and tests every push and

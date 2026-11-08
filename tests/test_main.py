@@ -28,6 +28,18 @@ def test_health():
     assert response.json() == {"status": "ok"}
 
 
+def test_health_names_the_running_version(monkeypatch):
+    monkeypatch.delenv("APP_VERSION", raising=False)
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    assert TestClient(app).get("/health").headers["X-App-Version"] == "dev"
+
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc123")
+    assert TestClient(app).get("/health").headers["X-App-Version"] == "abc123"
+
+    monkeypatch.setenv("APP_VERSION", "v1")
+    assert TestClient(app).get("/health").headers["X-App-Version"] == "v1"
+
+
 @pytest.mark.parametrize("path", [
     "/api/auth/register",
     "/api/auth/login",

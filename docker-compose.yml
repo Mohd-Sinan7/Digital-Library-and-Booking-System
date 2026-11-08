@@ -1,0 +1,48 @@
+# The app and its PostgreSQL database on one machine (DLBS-42).
+#
+#   docker compose up --build        then open http://localhost:8000
+#   docker compose down              stop (add --volumes to delete the database)
+#
+# The defaults below are for local use only. To change them, put JWT_SECRET,
+# ADMIN_EMAIL, ADMIN_PASSWORD or SEED_BOOKS in a .env file next to this one.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: library
+      POSTGRES_PASSWORD: library
+      POSTGRES_DB: library
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d library"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://library:library@db:5432/library
+      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-0123456789}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # full = all 10,000 books (about a minute, in the background); sample = 20 books.
+      SEED_BOOKS: ${SEED_BOOKS:-full}
+      APP_VERSION: ${APP_VERSION:-docker}
+    healthcheck:
+      test: ["CMD", "python", "scripts/smoke_test.py", "http://localhost:8000",
+             "--timeout", "0"]
+      interval: 10s
+      timeout: 15s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  db-data:

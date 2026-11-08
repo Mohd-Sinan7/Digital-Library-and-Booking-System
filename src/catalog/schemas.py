@@ -6,6 +6,8 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 Text255 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+# Matches the books.author column, which fits long co-author lists.
+Author = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 Genre = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 
 
@@ -45,7 +47,7 @@ class _BookFields(BaseModel):
 
 class BookCreate(_BookFields):
     title: Text255
-    author: Text255
+    author: Author
     isbn: str
     genre: Genre
     page_count: int = Field(ge=1)
@@ -62,7 +64,7 @@ class BookUpdate(_BookFields):
     """Any subset of the BookCreate fields. Omitted fields stay unchanged."""
 
     title: Text255 | None = None
-    author: Text255 | None = None
+    author: Author | None = None
     isbn: str | None = None
     genre: Genre | None = None
     page_count: int | None = Field(None, ge=1)

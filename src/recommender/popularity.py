@@ -22,6 +22,10 @@ class PopularityRecommender(Recommender):
     def __init__(self, db: Session | None = None):
         self.db = db
 
+    def fit(self, db: Session | None = None) -> None:
+        """Fit or precalculate reader activity counts (FR-R6)."""
+        pass
+
     def recommend(
         self,
         user_id: int,

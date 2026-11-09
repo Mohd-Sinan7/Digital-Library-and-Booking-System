@@ -29,6 +29,14 @@ Member 4 owns reservation and loan behaviour. Catalog owns book records; Member 
 | **FR-B4** | Status becomes `cancelled` and available copies rise by one; a borrowed booking cannot be cancelled. | `BookingService.cancel_booking` sets status to `cancelled`, increments `available_copies + 1`. `ensure_can_cancel` rejects borrowed bookings. Verified by `test_tc_b05_*` and `test_api_cancel_borrowed_returns_409`. |
 | **FR-B5** | Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08. | `test_tc_b08_counts_verified_after_every_action` performs reserve → borrow → return → re-reserve → cancel and asserts `available_copies` at each step. |
 
+## Requirements and Acceptance Criteria (DLBS-51 / Sprint 2)
+
+| Requirement | Acceptance Criteria | Implementation / Verification |
+|---|---|---|
+| **FR-B6** | A borrowed booking read after its due date shows `overdue = true`. | Evaluated dynamically on read in `Booking.overdue`, `Booking.is_overdue`, and `BookingRow.overdue` when `status == 'borrowed'` and `due_date < today`. Serialized in all booking API responses. Verified by `tests/test_dlbs_51_due_dates_overdue_expiry.py`. |
+| **FR-B7** | `GET /api/bookings/me` lists only the member's bookings with status, dates and overdue flag. | `BookingService.get_user_bookings` and `get_my_bookings_endpoint` return only the authenticated member's bookings (`user_id == current_user.id`), sorted newest first (`id DESC`), including status, dates (`created_at`, `due_date`, `returned_at`, `reserved_at`, `expires_at`, `borrowed_at`), and `overdue` flag. Verified by `test_tc_b22_fr_b7_get_my_bookings_lists_only_member_bookings`. |
+| **FR-B10** | A reservation read more than 2 days after it was made shows expired and its copy is available again. | On read (`get_booking`, `get_user_bookings`, `GET /api/bookings/me`), unborrowed reservations older than 2 calendar days (`today > expires_at`) dynamically transition to `status = 'expired'` and increment `available_copies + 1` in one atomic transaction without requiring a background cron worker. Verified by `test_tc_b23_fr_b10_reservation_read_past_two_days_shows_expired_and_restores_copy`. |
+
 ## Bookings Table Design (DLBS-45)
 
 The `bookings` table manages reservation and loan lifecycles:
@@ -48,7 +56,7 @@ The `bookings` table manages reservation and loan lifecycles:
 Table Constraints:
 - `CHECK (status IN ('reserved', 'borrowed', 'returned', 'cancelled', 'expired'))`
 
-## State Transition Rules (DLBS-45)
+## State Transition Rules (DLBS-45, DLBS-51)
 
 ```
                     +--------------------+
@@ -82,7 +90,7 @@ Table Constraints:
 | `[*] (None)` | `reserved` | `reserve_book` (FR-B1) | Decrement by 1 (`available_copies - 1`) | **Yes** |
 | `reserved` | `borrowed` | `borrow_book` (FR-B2) | None (copies unchanged) | **Yes** |
 | `reserved` | `cancelled` | `cancel_booking` (FR-B4) | Increment by 1 (`available_copies + 1`) | **Yes** |
-| `reserved` | `expired` | `expire_booking` (FR-B10) | Increment by 1 (`available_copies + 1`) | **Yes** (after 2 days) |
+| `reserved` | `expired` | Dynamic on read / `expire_booking` (FR-B10) | Increment by 1 (`available_copies + 1`) | **Yes** (after 2 days) |
 | `borrowed` | `returned` | `return_book` (FR-B3) | Increment by 1 (`available_copies + 1`) | **Yes** |
 | `reserved` | `returned` | Direct return attempt | — | **No** (Rejected) |
 | `borrowed` | `cancelled` | Direct cancel attempt | — | **No** (Rejected) |

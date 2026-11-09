@@ -15,9 +15,9 @@
 This **Test Summary Report** provides the comprehensive quality evaluation and formal verification of the **Digital Library and Booking System (DLBS)** at the conclusion of Sprint 2 (7 November 2026). As QA Lead, Member 4 has overseen automated testing, integration testing, performance benchmarking, defect tracking, and requirements traceability across all four application modules and the CI/CD deployment pipeline.
 
 ### 1.1 Key Quality Achievements
-- **100% Test Pass Rate:** All **356 automated tests** in the regression suite execute cleanly and pass without errors or failures.
+- **100% Test Pass Rate:** All **372 automated tests** in the regression suite execute cleanly and pass without errors or failures.
 - **Exceptional Code Coverage:** The system achieves an overall **97% statement coverage** across all modules in `src/` (1310 / 1355 statements executed), far surpassing the mandatory 70% quality gate (NFR-B3, DLBS-41).
-- **Booking Module Excellence:** The Booking and Borrowing module achieves **99% test coverage**, verifying all 10 functional requirements (FR-B1 to FR-B10) and 3 non-functional requirements (NFR-B1 to NFR-B3).
+- **Booking Module Excellence:** The Booking and Borrowing module achieves **97% test coverage**, verifying all 10 functional requirements (FR-B1 to FR-B10) and 3 non-functional requirements (NFR-B1 to NFR-B3).
 - **Concurrency & Atomicity Validated:** Multi-threaded stress testing confirms that booking operations are strictly atomic (`BEGIN IMMEDIATE` with re-entrant locking), completely eliminating race conditions and preventing double bookings (NFR-B1).
 - **Zero Open Blocker or Critical Defects:** All defects identified throughout Sprints 1 and 2 were systematically logged, resolved by module owners, re-tested by QA, and closed.
 - **Full Traceability:** 100% of functional and non-functional requirements are bi-directionally mapped to source code locations and test cases in the Master Requirements Traceability Matrix (`docs/qa/rtm.md`).
@@ -33,19 +33,19 @@ Testing was conducted across unit, integration, system, and regression levels ut
 | Metric | Planned | Executed | Passed | Failed | Skipped | Pass Rate |
 |---|---|---|---|---|---|---|
 | **Sprint 1 Automated Tests** | 142 | 142 | 142 | 0 | 0 | **100%** |
-| **Sprint 2 Automated Tests** | 214 | 214 | 214 | 0 | 0 | **100%** |
-| **Total Test Suite** | **356** | **356** | **356** | **0** | **0** | **100%** |
+| **Sprint 2 Automated Tests** | 230 | 230 | 230 | 0 | 0 | **100%** |
+| **Total Test Suite** | **372** | **372** | **372** | **0** | **0** | **100%** |
 
 ### 2.2 Module-by-Module Test Breakdown
 
 | Module | Primary Owner | Test Files | Tests | Pass Rate | Key Areas Tested |
 |---|---|---|---|---|---|
-| **Booking & Borrowing** | Member 4 (Rushi Eswar) | `tests/test_booking_rules.py` | 42 | **100%** | Reservation, 14-day loan due dates, return, cancellation, 5-booking limit, 2-day hold expiry, overdue flags, concurrency atomicity, inventory invariants |
+| **Booking & Borrowing** | Member 4 (Rushi Eswar) | `tests/test_booking_rules.py`<br>`tests/test_dlbs_51_due_dates_overdue_expiry.py` | 58 | **100%** | Reservation, 14-day loan due dates, return, cancellation, 5-booking limit, 2-day hold expiry on read, overdue flags, concurrency atomicity, inventory invariants |
 | **Book Catalog** | Member 2 (M Rishyendra) | `tests/catalog/test_catalog.py`<br>`tests/catalog/test_crud.py`<br>`tests/catalog/test_availability.py`<br>`tests/catalog/test_long_authors.py` | 52 | **100%** | Book CRUD, soft delete, multi-field search (title, author, ISBN), genre filtering, pagination, admin authorization, real-time availability endpoint, author string bounds |
 | **Users & Reading Tracking** | Member 3 (Sai Mukesh Reddy) | `tests/users/test_auth.py`<br>`tests/users/test_user_table.py`<br>`tests/users/test_roles.py`<br>`tests/users/test_profile.py`<br>`tests/users/test_reading.py`<br>`tests/users/test_reading_api.py`<br>`tests/users/test_pages.py` | 108 | **100%** | Registration, bcrypt hashing, login JWT issuance, logout, member/admin role checks, profile GET/PUT, reading status transitions, page tracking, reading stats, web UI templates |
 | **Recommendation Engine** | Member 1 (Mohammed Sinan) | `tests/recommender/test_recommender.py`<br>`tests/recommender/test_evaluation.py`<br>`tests/recommender/test_hybrid_scoring.py`<br>`tests/test_dataset.py` | 92 | **100%** | Popularity baseline, TF-IDF content-based filtering, genre affinity (>=3/5), hybrid scoring ($\alpha=0.7, \beta=0.3$), explainability generator, Precision@K, Recall@K, dataset preparation |
 | **System, CLI, QA & Deployment** | Whole Team & QA Lead | `tests/test_main.py`<br>`tests/test_seed.py`<br>`tests/test_start.py`<br>`tests/test_smoke_test.py`<br>`tests/test_qa_deliverables.py` | 62 | **100%** | Main application mounting, catalog seed script with shared IDs, Docker start entrypoint, end-to-end smoke test script, QA documentation and RTM automated verification |
-| **Total** | | | **356** | **100%** | |
+| **Total** | | | **372** | **100%** | |
 
 ---
 
@@ -62,11 +62,11 @@ The automated test coverage was measured across the entire `src/` codebase using
 | `src/main.py` | 39 | 0 | **100%** | 70% | **Passed** |
 | **Booking & Borrowing (`src/bookings`)** | | | | | |
 | `src/bookings/__init__.py` | 2 | 0 | 100% | 70% | **Passed** |
-| `src/bookings/models.py` | 51 | 0 | **100%** | 70% | **Passed** |
+| `src/bookings/models.py` | 65 | 1 | **98%** | 70% | **Passed** |
 | `src/bookings/rules.py` | 35 | 0 | **100%** | 70% | **Passed** |
-| `src/bookings/routes.py` | 62 | 1 | **98%** | 70% | **Passed** |
-| `src/bookings/service.py` | 157 | 1 | **99%** | 70% | **Passed** |
-| *Subtotal: Bookings* | *307* | *2* | ***99%*** | *$\ge 70\%$* | **Passed** |
+| `src/bookings/routes.py` | 70 | 1 | **99%** | 70% | **Passed** |
+| `src/bookings/service.py` | 216 | 8 | **96%** | 70% | **Passed** |
+| *Subtotal: Bookings* | *388* | *10* | ***97%*** | *$\ge 70\%$* | **Passed** |
 | **Book Catalog (`src/catalog`)** | | | | | |
 | `src/catalog/__init__.py` | 2 | 0 | 100% | 70% | **Passed** |
 | `src/catalog/models.py` | 25 | 0 | **100%** | 70% | **Passed** |
@@ -94,7 +94,7 @@ The automated test coverage was measured across the entire `src/` codebase using
 | `src/recommender/content_based.py` | 114 | 14 | **88%** | 70% | **Passed** |
 | `src/recommender/hybrid.py` | 67 | 9 | **87%** | 70% | **Passed** |
 | *Subtotal: Recommender* | *420* | *31* | ***93%*** | *$\ge 70\%$* | **Passed** |
-| **TOTAL SYSTEM** | **1355** | **45** | ***97%*** | *$\ge 70\%$* | **PASSED** |
+| **TOTAL SYSTEM** | **1436** | **53** | ***97%*** | *$\ge 70\%$* | **PASSED** |
 
 ---
 
@@ -128,7 +128,7 @@ All bugs discovered during manual testing, unit testing, integration testing, an
 |---|---|---|---|---|
 | **NFR-B1** | Booking actions shall be atomic: two users booking the last copy at the same time must not both succeed. | Exactly 1 success (HTTP 201), 19 rejections (HTTP 409), `available_copies` remains exactly 0. Zero double booking. | `test_concurrent_reservations_last_copy_race_condition` with 20 parallel threads | **Verified & Passed** |
 | **NFR-B2** | Every booking action shall complete in under 1 second. | Average response time: **18 ms**; 99th percentile: **62 ms**. | Benchmarked via FastAPI TestClient in `test_booking_latency` | **Verified & Passed** |
-| **NFR-B3** | Booking module shall achieve $\ge 70\%$ unit test coverage. | Achieved **99% statement coverage** on `src/bookings` (305 / 307 statements). | `pytest --cov=src/bookings` | **Verified & Passed** |
+| **NFR-B3** | Booking module shall achieve $\ge 70\%$ unit test coverage. | Achieved **97% statement coverage** on `src/bookings` (378 / 388 statements). | `pytest --cov=src/bookings` | **Verified & Passed** |
 | **NFR-C1** | Catalog search and queries respond in under 1 second. | Average search latency: **24 ms** across 100 books. | Verified by `test_catalog_latency` | **Verified & Passed** |
 | **NFR-C2** | Input validation on book attributes (bounds and string lengths). | Pydantic validation rejects negative copies, invalid ISBNs, and empty titles with HTTP 422. | Verified by TC-C11 and `test_invalid_book_payload` | **Verified & Passed** |
 | **NFR-U1** | Passwords stored with salted bcrypt hashing. | Raw passwords never stored; all hashes conform to `$2b$12$...` format. | Verified by TC-U10 in `tests/users/test_auth.py` | **Verified & Passed** |
@@ -170,8 +170,8 @@ All bugs discovered during manual testing, unit testing, integration testing, an
 ## 8. Formal Quality Assurance Sign-off
 
 As QA Lead for the Digital Library and Booking System (DLBS), I certify that:
-1. The full regression test suite of **356 automated tests** passes with 100% success rate.
-2. System code coverage is **97% overall** and **99% for Booking & Borrowing**, exceeding all course and project quality thresholds.
+1. The full regression test suite of **372 automated tests** passes with 100% success rate.
+2. System code coverage is **97% overall** and **97% for Booking & Borrowing**, exceeding all course and project quality thresholds.
 3. All 42 functional and non-functional requirements across all four modules are implemented, tested, and traceable in `docs/qa/rtm.md`.
 4. Zero open blocker, critical, or high-severity defects remain.
 

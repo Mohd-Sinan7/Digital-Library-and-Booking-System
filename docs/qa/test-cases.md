@@ -110,9 +110,9 @@
 
 ## 6. Execution Summary and Release Quality Gate Results
 
-- **Total Test Cases Specified:** 54 test cases across all modules and cross-cutting components.
-- **Automated Tests Executed:** **356 automated tests passing** in test suite (`tests/`).
-- **Regression Pass Rate:** **100% (356 / 356 passed, 0 failures, 0 errors)**.
+- **Total Test Cases Specified:** 55 test cases across all modules and cross-cutting components.
+- **Automated Tests Executed:** **362 automated tests passing** in test suite (`tests/`).
+- **Regression Pass Rate:** **100% (362 / 362 passed, 0 failures, 0 errors)**.
 - **Critical Defects Open:** **0**.
 - **Module Statement Coverage:**
   - `src/bookings`: **99%** (Target: $\ge 70\%$, NFR-B3)

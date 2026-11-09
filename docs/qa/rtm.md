@@ -122,7 +122,7 @@ Each requirement is tracked with:
 
 - **Total Requirements Specified:** 42 requirements across 4 functional modules and cross-cutting DevOps.
 - **Traceability Coverage:** **100% (42 / 42 requirements traced)**.
-- **Automated Regression Tests Executed:** **356 tests passing (0 failures, 0 skipped, 0 regressions)**.
+- **Automated Regression Tests Executed:** **362 tests passing (0 failures, 0 skipped, 0 regressions)**.
 - **Defects / Gaps Identified:** **0 open blockers, 0 open critical/high defects**.
 - **System Code Coverage:** **97% overall coverage across `src/`**, with **99% on `src/bookings`**, comfortably surpassing the $\ge 70\%$ requirement (NFR-B3, DLBS-41).
 - **QA Lead Sign-Off:** Marreddy Rushieswar Reddy (Member 4, QA Lead)  

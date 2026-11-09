@@ -15,7 +15,7 @@
 This **Test Summary Report** provides the comprehensive quality evaluation and formal verification of the **Digital Library and Booking System (DLBS)** at the conclusion of Sprint 2 (7 November 2026). As QA Lead, Member 4 has overseen automated testing, integration testing, performance benchmarking, defect tracking, and requirements traceability across all four application modules and the CI/CD deployment pipeline.
 
 ### 1.1 Key Quality Achievements
-- **100% Test Pass Rate:** All **356 automated tests** in the regression suite execute cleanly and pass without errors or failures.
+- **100% Test Pass Rate:** All **362 automated tests** in the regression suite execute cleanly and pass without errors or failures.
 - **Exceptional Code Coverage:** The system achieves an overall **97% statement coverage** across all modules in `src/` (1310 / 1355 statements executed), far surpassing the mandatory 70% quality gate (NFR-B3, DLBS-41).
 - **Booking Module Excellence:** The Booking and Borrowing module achieves **99% test coverage**, verifying all 10 functional requirements (FR-B1 to FR-B10) and 3 non-functional requirements (NFR-B1 to NFR-B3).
 - **Concurrency & Atomicity Validated:** Multi-threaded stress testing confirms that booking operations are strictly atomic (`BEGIN IMMEDIATE` with re-entrant locking), completely eliminating race conditions and preventing double bookings (NFR-B1).
@@ -33,8 +33,8 @@ Testing was conducted across unit, integration, system, and regression levels ut
 | Metric | Planned | Executed | Passed | Failed | Skipped | Pass Rate |
 |---|---|---|---|---|---|---|
 | **Sprint 1 Automated Tests** | 142 | 142 | 142 | 0 | 0 | **100%** |
-| **Sprint 2 Automated Tests** | 214 | 214 | 214 | 0 | 0 | **100%** |
-| **Total Test Suite** | **356** | **356** | **356** | **0** | **0** | **100%** |
+| **Sprint 2 Automated Tests** | 220 | 220 | 220 | 0 | 0 | **100%** |
+| **Total Test Suite** | **362** | **362** | **362** | **0** | **0** | **100%** |
 
 ### 2.2 Module-by-Module Test Breakdown
 
@@ -45,7 +45,7 @@ Testing was conducted across unit, integration, system, and regression levels ut
 | **Users & Reading Tracking** | Member 3 (Sai Mukesh Reddy) | `tests/users/test_auth.py`<br>`tests/users/test_user_table.py`<br>`tests/users/test_roles.py`<br>`tests/users/test_profile.py`<br>`tests/users/test_reading.py`<br>`tests/users/test_reading_api.py`<br>`tests/users/test_pages.py` | 108 | **100%** | Registration, bcrypt hashing, login JWT issuance, logout, member/admin role checks, profile GET/PUT, reading status transitions, page tracking, reading stats, web UI templates |
 | **Recommendation Engine** | Member 1 (Mohammed Sinan) | `tests/recommender/test_recommender.py`<br>`tests/recommender/test_evaluation.py`<br>`tests/recommender/test_hybrid_scoring.py`<br>`tests/test_dataset.py` | 92 | **100%** | Popularity baseline, TF-IDF content-based filtering, genre affinity (>=3/5), hybrid scoring ($\alpha=0.7, \beta=0.3$), explainability generator, Precision@K, Recall@K, dataset preparation |
 | **System, CLI, QA & Deployment** | Whole Team & QA Lead | `tests/test_main.py`<br>`tests/test_seed.py`<br>`tests/test_start.py`<br>`tests/test_smoke_test.py`<br>`tests/test_qa_deliverables.py` | 62 | **100%** | Main application mounting, catalog seed script with shared IDs, Docker start entrypoint, end-to-end smoke test script, QA documentation and RTM automated verification |
-| **Total** | | | **356** | **100%** | |
+| **Total** | | | **362** | **100%** | |
 
 ---
 
@@ -170,7 +170,7 @@ All bugs discovered during manual testing, unit testing, integration testing, an
 ## 8. Formal Quality Assurance Sign-off
 
 As QA Lead for the Digital Library and Booking System (DLBS), I certify that:
-1. The full regression test suite of **356 automated tests** passes with 100% success rate.
+1. The full regression test suite of **362 automated tests** passes with 100% success rate.
 2. System code coverage is **97% overall** and **99% for Booking & Borrowing**, exceeding all course and project quality thresholds.
 3. All 42 functional and non-functional requirements across all four modules are implemented, tested, and traceable in `docs/qa/rtm.md`.
 4. Zero open blocker, critical, or high-severity defects remain.

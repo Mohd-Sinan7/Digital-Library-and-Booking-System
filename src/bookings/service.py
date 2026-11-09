@@ -147,7 +147,7 @@ class BookingService:
         row: tuple,
         as_of: date | None = None,
     ) -> Booking:
-        """Parse database row into Booking domain model, applying dynamic hold expiry on read (FR-B10)."""
+        """Parse DB row into domain model, applying dynamic hold expiry on read (FR-B10)."""
         (
             b_id,
             b_user_id,
@@ -164,7 +164,7 @@ class BookingService:
         current_date = as_of or date.today()
 
         # Dynamic hold expiry on read (FR-B10):
-        # A reservation read more than 2 days after it was made shows expired and its copy is available again.
+        # A reservation read > 2 days after creation shows expired and copy is restored.
         if status_str == BookingStatus.RESERVED.value:
             exp_date: date | None = None
             if expires_at_str:
@@ -385,7 +385,8 @@ class BookingService:
                         )
                         self._conn.commit()
                     raise BookingRuleError(
-                        f"Reservation for booking {booking_id} expired on {exp_date} and cannot be borrowed."
+                        f"Reservation for booking {booking_id} expired on {exp_date} "
+                        "and cannot be borrowed."
                     )
 
                 ensure_can_borrow(status_str)
@@ -695,7 +696,7 @@ class BookingService:
     def get_user_bookings(
         self, user_id: int, as_of: date | None = None
     ) -> list[Booking]:
-        """Fetch all bookings for a user, newest first, with dynamic hold expiry on read (FR-B7, FR-B10)."""
+        """Fetch all bookings for a user, newest first, with dynamic hold expiry (FR-B7, FR-B10)."""
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute(

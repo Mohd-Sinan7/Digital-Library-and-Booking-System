@@ -2,8 +2,8 @@
 
 Requirements:
 - FR-B6: A borrowed booking read after its due date shows overdue = true.
-- FR-B7: GET /api/bookings/me lists only the member's bookings with status, dates and overdue flag.
-- FR-B10: A reservation read more than 2 days after it was made shows expired and its copy is available again.
+- FR-B7: GET /api/bookings/me lists only member bookings with status, dates and overdue.
+- FR-B10: Reservation read more than 2 days after creation shows expired and copy restored.
 """
 
 from datetime import date, timedelta
@@ -40,7 +40,9 @@ def api_client(test_service):
     return client, test_service
 
 
-def _auth_headers(user_id: int = 1, name: str = "Test User", role: str = "member") -> dict[str, str]:
+def _auth_headers(
+    user_id: int = 1, name: str = "Test User", role: str = "member"
+) -> dict[str, str]:
     token = create_access_token(CurrentUser(user_id, name, f"user{user_id}@example.com", role))
     return {"Authorization": f"Bearer {token}"}
 
@@ -105,16 +107,24 @@ def test_fr_b6_non_borrowed_bookings_never_overdue():
     """FR-B6: Reserved, returned, cancelled, and expired bookings are never overdue."""
     past_date = date.today() - timedelta(days=10)
 
-    reserved = Booking(id=1, user_id=1, book_id=10, status=BookingStatus.RESERVED, due_date=past_date)
+    reserved = Booking(
+        id=1, user_id=1, book_id=10, status=BookingStatus.RESERVED, due_date=past_date
+    )
     assert reserved.overdue is False
 
-    returned = Booking(id=2, user_id=1, book_id=10, status=BookingStatus.RETURNED, due_date=past_date)
+    returned = Booking(
+        id=2, user_id=1, book_id=10, status=BookingStatus.RETURNED, due_date=past_date
+    )
     assert returned.overdue is False
 
-    cancelled = Booking(id=3, user_id=1, book_id=10, status=BookingStatus.CANCELLED, due_date=past_date)
+    cancelled = Booking(
+        id=3, user_id=1, book_id=10, status=BookingStatus.CANCELLED, due_date=past_date
+    )
     assert cancelled.overdue is False
 
-    expired = Booking(id=4, user_id=1, book_id=10, status=BookingStatus.EXPIRED, due_date=past_date)
+    expired = Booking(
+        id=4, user_id=1, book_id=10, status=BookingStatus.EXPIRED, due_date=past_date
+    )
     assert expired.overdue is False
 
 

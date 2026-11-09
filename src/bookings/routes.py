@@ -182,7 +182,7 @@ def get_my_bookings_endpoint(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     service: Annotated[BookingService, Depends(get_booking_service)],
 ) -> dict[str, list[dict[str, Any]]]:
-    """Returns all bookings for the authenticated member with status, dates, and overdue flag (FR-B7)."""
+    """Returns member's bookings with status, dates, and overdue flag (FR-B7)."""
     bookings = service.get_user_bookings(user_id=current_user.id)
     return {"items": [_serialize_booking(b) for b in bookings]}
 
@@ -193,7 +193,7 @@ def get_booking_endpoint(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     service: Annotated[BookingService, Depends(get_booking_service)],
 ) -> dict[str, Any]:
-    """Retrieves a single booking by ID with ownership verification and dynamic hold expiry (FR-B10)."""
+    """Retrieves single booking by ID with ownership check and dynamic hold expiry (FR-B10)."""
     booking = service.get_booking(booking_id=booking_id)
     if booking is None:
         raise HTTPException(

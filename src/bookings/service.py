@@ -41,6 +41,7 @@ class BookingService:
     def __init__(self, db_path: str = ":memory:") -> None:
         self._db_path = db_path
         self._lock = threading.RLock()
+        self._has_is_deleted = False
         self._conn = sqlite3.connect(
             db_path,
             check_same_thread=False,
@@ -84,9 +85,12 @@ class BookingService:
             # Ensure compatibility with shared catalog and booking tables in SQLite
             cursor.execute("PRAGMA table_info(books)")
             cols = [col[1] for col in cursor.fetchall()]
+            self._has_is_deleted = "is_deleted" in cols
             if cols and "is_removed" not in cols:
-                cursor.execute("ALTER TABLE books ADD COLUMN is_removed INTEGER NOT NULL DEFAULT 0")
-                if "is_deleted" in cols:
+                cursor.execute(
+                    "ALTER TABLE books ADD COLUMN is_removed INTEGER NOT NULL DEFAULT 0"
+                )
+                if self._has_is_deleted:
                     cursor.execute("UPDATE books SET is_removed = is_deleted")
 
             cursor.execute("PRAGMA table_info(bookings)")
@@ -119,11 +123,15 @@ class BookingService:
             )
             self._conn.commit()
 
+    def _removed_column_expr(self) -> str:
+        return "(is_removed = 1 OR is_deleted = 1)" if self._has_is_deleted else "is_removed"
+
     def get_book(self, book_id: int) -> dict | None:
         with self._lock:
             cursor = self._conn.cursor()
+            expr = self._removed_column_expr()
             cursor.execute(
-                "SELECT id, title, available_copies, is_removed FROM books WHERE id = ?",
+                f"SELECT id, title, available_copies, {expr} FROM books WHERE id = ?",
                 (book_id,),
             )
             row = cursor.fetchone()
@@ -249,8 +257,9 @@ class BookingService:
             cursor = self._conn.cursor()
             cursor.execute("BEGIN IMMEDIATE")
             try:
+                expr = self._removed_column_expr()
                 cursor.execute(
-                    "SELECT id, title, available_copies, is_removed FROM books WHERE id = ?",
+                    f"SELECT id, title, available_copies, {expr} FROM books WHERE id = ?",
                     (book_id,),
                 )
                 row = cursor.fetchone()

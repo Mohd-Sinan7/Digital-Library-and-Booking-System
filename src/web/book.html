@@ -118,17 +118,21 @@
     loadBookDetails(parseInt(bookId, 10));
   }
 
-  async function loadBookDetails(id) {
-    statusMsg.className = "alert info";
-    statusMsg.textContent = "Loading book details...";
+  async function loadBookDetails(id, preserveStatus = false) {
+    if (!preserveStatus) {
+      statusMsg.className = "alert info";
+      statusMsg.textContent = "Loading book details...";
+    }
     try {
       const [book, avail] = await Promise.all([
         DL.api(`/api/books/${id}`),
         DL.api(`/api/books/${id}/availability`).catch(() => null),
       ]);
 
-      statusMsg.textContent = "";
-      statusMsg.className = "";
+      if (!preserveStatus) {
+        statusMsg.textContent = "";
+        statusMsg.className = "";
+      }
       bookContent.style.display = "grid";
 
       document.title = `${book.title} · Digital Library`;
@@ -199,8 +203,8 @@
           });
           statusMsg.className = "alert success";
           statusMsg.innerHTML = `Successfully reserved "<strong>${DL.esc(book.title)}</strong>"! You have 2 days to pick up or borrow it. <a href="/bookings.html">Go to My Bookings</a> to confirm or manage.`;
-          // Reload availability
-          loadBookDetails(book.id);
+          // Reload availability while keeping the success message visible
+          loadBookDetails(book.id, true);
         } catch (err) {
           reserveBtn.disabled = false;
           statusMsg.className = "alert error";
@@ -210,7 +214,7 @@
     }
   }
 
-  function setupReadingWidget(book) {
+  async function setupReadingWidget(book) {
     const user = DL.user();
     if (!user) return;
     const section = document.getElementById("reading-section");
@@ -222,7 +226,25 @@
     const unitSelect = document.getElementById("reading-unit");
     const msg = document.getElementById("reading-msg");
 
-    form.addEventListener("submit", async (e) => {
+    // Preload current reading state if user has already recorded it
+    try {
+      const history = await DL.api("/api/reading/history");
+      const entry = (history.items || []).find((item) => item.book_id === book.id);
+      if (entry) {
+        statusSelect.value = entry.status;
+        if (entry.current_page) {
+          unitSelect.value = "page";
+          amountInput.value = entry.current_page;
+        } else if (entry.percent) {
+          unitSelect.value = "percent";
+          amountInput.value = entry.percent;
+        }
+      }
+    } catch {
+      // Ignore prefill errors
+    }
+
+    form.onsubmit = async (e) => {
       e.preventDefault();
       msg.textContent = "";
       const statusVal = statusSelect.value;
@@ -254,7 +276,7 @@
         msg.className = "alert error";
         msg.textContent = err.message || "Failed to update reading progress.";
       }
-    });
+    };
   }
 
   function setupAdminSection(book) {
@@ -281,15 +303,15 @@
     document.getElementById("edit-cover-url").value = book.cover_url ?? "";
     document.getElementById("edit-description").value = book.description ?? "";
 
-    toggleBtn.addEventListener("click", () => {
+    toggleBtn.onclick = () => {
       editForm.style.display = editForm.style.display === "none" ? "flex" : "none";
-    });
+    };
 
-    cancelBtn.addEventListener("click", () => {
+    cancelBtn.onclick = () => {
       editForm.style.display = "none";
-    });
+    };
 
-    editForm.addEventListener("submit", async (e) => {
+    editForm.onsubmit = async (e) => {
       e.preventDefault();
       adminMsg.textContent = "";
       const body = {
@@ -309,14 +331,14 @@
         adminMsg.className = "alert success";
         adminMsg.textContent = "Book details saved successfully!";
         editForm.style.display = "none";
-        loadBookDetails(book.id);
+        loadBookDetails(book.id, true);
       } catch (err) {
         adminMsg.className = "alert error";
         adminMsg.textContent = err.message || "Failed to update book.";
       }
-    });
+    };
 
-    deleteBtn.addEventListener("click", async () => {
+    deleteBtn.onclick = async () => {
       if (!confirm(`Are you sure you want to soft-delete "${book.title}" from the catalog?`)) return;
       try {
         await DL.api(`/api/books/${book.id}`, { method: "DELETE" });
@@ -326,7 +348,7 @@
         adminMsg.className = "alert error";
         adminMsg.textContent = err.message || "Failed to delete book.";
       }
-    });
+    };
   }
 </script>
 </body>

@@ -4,6 +4,7 @@
   --accent: #1f5fbf; --border: #d0d7de; --ok: #1a7f37; --warn: #9a6700; --error: #cf222e;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
        background: var(--bg); color: var(--text); }
 a { color: var(--accent); }

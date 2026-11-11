@@ -2,46 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Book Details · Digital Library</title>
   <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/bookings.css">
   <script src="/js/app.js"></script>
+  <script src="/js/booking-actions.js"></script>
 </head>
 <body>
 <main>
-  <p><a href="/catalog.html">&larr; Back to Catalog</a></p>
-  <div id="status-msg" role="status"></div>
+  <p><a href="/catalog.html">&larr; Back to Catalog</a> · <a href="/bookings.html">My Bookings</a></p>
+  <p id="page-error" class="error" role="alert"></p>
 
-  <article id="book-content" class="book-detail" style="display: none;">
-    <div>
-      <img id="book-cover" class="book-cover-large" src="" alt="Book Cover">
-    </div>
+  <article id="book-container" class="book-detail" hidden>
+    <div id="cover-slot"></div>
 
     <div class="book-meta">
-      <h1 id="book-title"></h1>
-      <p id="book-author" class="author"></p>
-      <div id="availability-badge" style="margin: 4px 0 12px;"></div>
-
-      <div class="action-bar" id="booking-actions">
-        <!-- Injected via JavaScript based on auth and availability -->
-      </div>
+      <h1 id="book-title">Book Details</h1>
+      <p id="book-meta" class="muted"></p>
 
       <div class="meta-list">
-        <div class="meta-item">
-          <span class="label">Genre</span>
-          <span id="book-genre" class="value"></span>
-        </div>
         <div class="meta-item">
           <span class="label">ISBN</span>
           <span id="book-isbn" class="value"></span>
         </div>
         <div class="meta-item">
-          <span class="label">Publication Year</span>
-          <span id="book-year" class="value"></span>
-        </div>
-        <div class="meta-item">
           <span class="label">Pages</span>
           <span id="book-pages" class="value"></span>
+        </div>
+        <div class="meta-item">
+          <span class="label">Publication Year</span>
+          <span id="book-year" class="value"></span>
         </div>
         <div class="meta-item">
           <span class="label">Total Stock</span>
@@ -49,11 +40,16 @@
         </div>
       </div>
 
-      <h2>Description</h2>
-      <p id="book-description" style="line-height: 1.6;"></p>
+      <p id="book-desc"></p>
 
-      <!-- Reading Status Widget for logged in users -->
-      <section id="reading-section" class="panel" style="display: none;">
+      <!-- Reserve / Borrow section (DLBS-53 via DLBooking) -->
+      <section id="booking-actions" aria-labelledby="booking-actions-heading" class="book-actions-box">
+        <h2 id="booking-actions-heading">Reserve or Borrow</h2>
+        <div id="booking-widget"></div>
+      </section>
+
+      <!-- Reading Status Widget for logged-in members -->
+      <section id="reading-section" class="panel" hidden>
         <h3>My Reading Status</h3>
         <form id="reading-form" class="row">
           <label>Status
@@ -77,14 +73,14 @@
         <p id="reading-msg" role="status"></p>
       </section>
 
-      <!-- Admin Actions section -->
-      <section id="admin-section" class="panel" style="display: none; border-color: var(--accent);">
+      <!-- Admin Edit & Soft-Delete section -->
+      <section id="admin-section" class="panel" hidden style="border-color: var(--accent);">
         <h3>Admin Controls</h3>
         <div class="action-bar">
           <button id="toggle-edit-btn" class="secondary" type="button">Edit Book Details</button>
           <button id="delete-book-btn" class="danger" type="button">Delete Book (Soft Delete)</button>
         </div>
-        <form id="edit-form" class="stack" style="display: none; margin-top: 16px;" novalidate>
+        <form id="edit-form" class="stack" hidden style="margin-top: 16px;" novalidate>
           <label>Title <input id="edit-title" required></label>
           <label>Author <input id="edit-author" required></label>
           <label>Genre <input id="edit-genre" required></label>
@@ -106,250 +102,192 @@
 </main>
 
 <script>
-  // DLBS-23, DLBS-45, DLBS-51: Book details, availability, reserving, reading tracker, admin edit.
-  const bookId = new URLSearchParams(location.search).get("id");
-  const statusMsg = document.getElementById("status-msg");
-  const bookContent = document.getElementById("book-content");
+  // DLBS-53 + DLBS-23: Integrated book details, DLBooking actions, reading progress, and admin controls.
+  (() => {
+    const params = new URLSearchParams(location.search);
+    const bookId = params.get("id");
+    const errEl = document.getElementById("page-error");
+    const container = document.getElementById("book-container");
 
-  if (!bookId) {
-    statusMsg.className = "alert error";
-    statusMsg.innerHTML = 'No book specified. Please return to the <a href="/catalog.html">catalog</a>.';
-  } else {
-    loadBookDetails(parseInt(bookId, 10));
-  }
-
-  async function loadBookDetails(id, preserveStatus = false) {
-    if (!preserveStatus) {
-      statusMsg.className = "alert info";
-      statusMsg.textContent = "Loading book details...";
-    }
-    try {
-      const [book, avail] = await Promise.all([
-        DL.api(`/api/books/${id}`),
-        DL.api(`/api/books/${id}/availability`).catch(() => null),
-      ]);
-
-      if (!preserveStatus) {
-        statusMsg.textContent = "";
-        statusMsg.className = "";
-      }
-      bookContent.style.display = "grid";
-
-      document.title = `${book.title} · Digital Library`;
-      document.getElementById("book-title").textContent = book.title;
-      document.getElementById("book-author").textContent = `by ${book.author}`;
-      document.getElementById("book-genre").textContent = book.genre || "N/A";
-      document.getElementById("book-isbn").textContent = book.isbn || "N/A";
-      document.getElementById("book-year").textContent = book.year || "N/A";
-      document.getElementById("book-pages").textContent = book.page_count ? `${book.page_count} pages` : "N/A";
-      document.getElementById("book-total-copies").textContent = book.total_copies ?? "N/A";
-      document.getElementById("book-description").textContent = book.description || "No description provided.";
-
-      const coverImg = document.getElementById("book-cover");
-      if (book.cover_url) {
-        coverImg.src = book.cover_url;
-        coverImg.alt = `Cover of ${book.title}`;
-      } else {
-        coverImg.style.display = "none";
-      }
-
-      // Availability badge
-      const availableCopies = avail ? avail.available_copies : book.available_copies;
-      const totalCopies = avail ? avail.total_copies : book.total_copies;
-      const isAvail = availableCopies > 0;
-
-      const badgeDiv = document.getElementById("availability-badge");
-      badgeDiv.innerHTML = isAvail
-        ? `<span class="badge ok">In Stock: ${availableCopies} of ${totalCopies} copies available</span>`
-        : `<span class="badge none">Currently Unavailable (0 copies)</span>`;
-
-      renderBookingActions(book, isAvail);
-      setupReadingWidget(book);
-      setupAdminSection(book);
-    } catch (err) {
-      statusMsg.className = "alert error";
-      statusMsg.textContent = err.status === 404
-        ? "This book was not found or has been retired from the catalog."
-        : "Failed to load book: " + err.message;
-    }
-  }
-
-  function renderBookingActions(book, isAvail) {
-    const container = document.getElementById("booking-actions");
-    const user = DL.user();
-
-    if (!user) {
-      container.innerHTML = `<p class="muted">Want to borrow this book? <a href="/login.html?next=${encodeURIComponent(location.pathname + location.search)}">Log in</a> or <a href="/register.html">create an account</a>.</p>`;
+    if (!bookId || Number.isNaN(Number(bookId))) {
+      errEl.textContent = "No valid book ID specified.";
       return;
     }
 
-    container.innerHTML = `
-      <button id="reserve-btn" class="primary" ${!isAvail ? "disabled" : ""}>
-        ${isAvail ? "Reserve This Book" : "Out of Stock"}
-      </button>
-      <a href="/bookings.html" class="secondary" style="display: inline-block; padding: 7px 14px; text-decoration: none;">View My Bookings</a>
-    `;
+    async function loadBook() {
+      try {
+        const book = await DL.api(`/api/books/${encodeURIComponent(bookId)}`);
+        document.title = `${book.title} · Digital Library`;
+        document.getElementById("book-title").textContent = book.title;
+        document.getElementById("book-meta").textContent =
+          `${book.author}${book.genre ? " · " + book.genre : ""}`;
+        document.getElementById("book-desc").textContent =
+          book.description || "No description available.";
+        document.getElementById("book-isbn").textContent = book.isbn || "N/A";
+        document.getElementById("book-pages").textContent = book.page_count ? `${book.page_count} pages` : "N/A";
+        document.getElementById("book-year").textContent = book.year || "N/A";
+        document.getElementById("book-total-copies").textContent = book.total_copies ?? "N/A";
 
-    const reserveBtn = document.getElementById("reserve-btn");
-    if (reserveBtn && isAvail) {
-      reserveBtn.addEventListener("click", async () => {
-        reserveBtn.disabled = true;
-        statusMsg.className = "alert info";
-        statusMsg.textContent = "Processing your reservation...";
-        try {
-          await DL.api("/api/bookings", {
-            method: "POST",
-            body: { book_id: book.id }
-          });
-          statusMsg.className = "alert success";
-          statusMsg.innerHTML = `Successfully reserved "<strong>${DL.esc(book.title)}</strong>"! You have 2 days to pick up or borrow it. <a href="/bookings.html">Go to My Bookings</a> to confirm or manage.`;
-          // Reload availability while keeping the success message visible
-          loadBookDetails(book.id, true);
-        } catch (err) {
-          reserveBtn.disabled = false;
-          statusMsg.className = "alert error";
-          statusMsg.textContent = err.message || "Reservation failed.";
+        const coverSlot = document.getElementById("cover-slot");
+        if (book.cover_url) {
+          const img = document.createElement("img");
+          img.className = "book-cover";
+          img.src = book.cover_url;
+          img.alt = `Cover for ${book.title}`;
+          img.width = 200;
+          img.height = 300;
+          coverSlot.replaceChildren(img);
+        } else {
+          coverSlot.innerHTML = `<div class="book-cover" aria-hidden="true"></div>`;
         }
-      });
-    }
-  }
 
-  async function setupReadingWidget(book) {
-    const user = DL.user();
-    if (!user) return;
-    const section = document.getElementById("reading-section");
-    section.style.display = "block";
-
-    const form = document.getElementById("reading-form");
-    const statusSelect = document.getElementById("reading-status");
-    const amountInput = document.getElementById("reading-amount");
-    const unitSelect = document.getElementById("reading-unit");
-    const msg = document.getElementById("reading-msg");
-
-    // Preload current reading state if user has already recorded it
-    try {
-      const history = await DL.api("/api/reading/history");
-      const entry = (history.items || []).find((item) => item.book_id === book.id);
-      if (entry) {
-        statusSelect.value = entry.status;
-        if (entry.current_page) {
-          unitSelect.value = "page";
-          amountInput.value = entry.current_page;
-        } else if (entry.percent) {
-          unitSelect.value = "percent";
-          amountInput.value = entry.percent;
-        }
+        container.hidden = false;
+        await DLBooking.mountBookActions(
+          document.getElementById("booking-widget"),
+          Number(bookId)
+        );
+        await setupReadingWidget(book);
+        setupAdminSection(book);
+      } catch (err) {
+        errEl.textContent = (err && err.message) || "Could not load book details.";
       }
-    } catch {
-      // Ignore prefill errors
     }
 
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      msg.textContent = "";
-      const statusVal = statusSelect.value;
-      const amountVal = amountInput.value.trim();
+    async function setupReadingWidget(book) {
+      const user = DL.user();
+      if (!user) return;
+      const section = document.getElementById("reading-section");
+      section.hidden = false;
+
+      const form = document.getElementById("reading-form");
+      const statusSelect = document.getElementById("reading-status");
+      const amountInput = document.getElementById("reading-amount");
+      const unitSelect = document.getElementById("reading-unit");
+      const msg = document.getElementById("reading-msg");
 
       try {
-        // Update reading status
-        await DL.api("/api/reading/status", {
-          method: "PUT",
-          body: { book_id: book.id, status: statusVal }
-        });
-
-        // If progress is entered, save it
-        if (amountVal !== "") {
-          const body = { book_id: book.id };
-          const num = parseFloat(amountVal);
-          if (unitSelect.value === "page") body.current_page = parseInt(num, 10);
-          else body.percent = num;
-
-          await DL.api("/api/reading/progress", {
-            method: "POST",
-            body
-          });
+        const history = await DL.api("/api/reading/history");
+        const entry = (history.items || []).find((item) => item.book_id === book.id);
+        if (entry) {
+          statusSelect.value = entry.status;
+          if (entry.current_page) {
+            unitSelect.value = "page";
+            amountInput.value = entry.current_page;
+          } else if (entry.percent) {
+            unitSelect.value = "percent";
+            amountInput.value = entry.percent;
+          }
         }
-
-        msg.className = "alert success";
-        msg.textContent = "Reading status and progress updated successfully!";
-      } catch (err) {
-        msg.className = "alert error";
-        msg.textContent = err.message || "Failed to update reading progress.";
+      } catch {
+        // Ignore prefill failure
       }
-    };
-  }
 
-  function setupAdminSection(book) {
-    const user = DL.user();
-    if (!user || user.role !== "admin") return;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        msg.textContent = "";
+        const statusVal = statusSelect.value;
+        const amountVal = amountInput.value.trim();
 
-    const section = document.getElementById("admin-section");
-    section.style.display = "block";
+        try {
+          await DL.api("/api/reading/status", {
+            method: "PUT",
+            body: { book_id: book.id, status: statusVal }
+          });
 
-    const toggleBtn = document.getElementById("toggle-edit-btn");
-    const editForm = document.getElementById("edit-form");
-    const cancelBtn = document.getElementById("cancel-edit-btn");
-    const deleteBtn = document.getElementById("delete-book-btn");
-    const adminMsg = document.getElementById("admin-msg");
+          if (amountVal !== "") {
+            const body = { book_id: book.id };
+            const num = parseFloat(amountVal);
+            if (unitSelect.value === "page") body.current_page = parseInt(num, 10);
+            else body.percent = num;
 
-    // Populate edit fields
-    document.getElementById("edit-title").value = book.title;
-    document.getElementById("edit-author").value = book.author;
-    document.getElementById("edit-genre").value = book.genre || "";
-    document.getElementById("edit-isbn").value = book.isbn || "";
-    document.getElementById("edit-total-copies").value = book.total_copies ?? 0;
-    document.getElementById("edit-page-count").value = book.page_count ?? 1;
-    document.getElementById("edit-year").value = book.year ?? "";
-    document.getElementById("edit-cover-url").value = book.cover_url ?? "";
-    document.getElementById("edit-description").value = book.description ?? "";
+            await DL.api("/api/reading/progress", {
+              method: "POST",
+              body
+            });
+          }
 
-    toggleBtn.onclick = () => {
-      editForm.style.display = editForm.style.display === "none" ? "flex" : "none";
-    };
+          msg.className = "alert success";
+          msg.textContent = "Reading status and progress updated successfully!";
+        } catch (err) {
+          msg.className = "alert error";
+          msg.textContent = err.message || "Failed to update reading progress.";
+        }
+      };
+    }
 
-    cancelBtn.onclick = () => {
-      editForm.style.display = "none";
-    };
+    function setupAdminSection(book) {
+      const user = DL.user();
+      if (!user || user.role !== "admin") return;
 
-    editForm.onsubmit = async (e) => {
-      e.preventDefault();
-      adminMsg.textContent = "";
-      const body = {
-        title: document.getElementById("edit-title").value.trim(),
-        author: document.getElementById("edit-author").value.trim(),
-        genre: document.getElementById("edit-genre").value.trim(),
-        isbn: document.getElementById("edit-isbn").value.trim(),
-        total_copies: parseInt(document.getElementById("edit-total-copies").value, 10),
-        page_count: parseInt(document.getElementById("edit-page-count").value, 10),
-        year: document.getElementById("edit-year").value ? parseInt(document.getElementById("edit-year").value, 10) : null,
-        cover_url: document.getElementById("edit-cover-url").value.trim() || null,
-        description: document.getElementById("edit-description").value.trim()
+      const section = document.getElementById("admin-section");
+      section.hidden = false;
+
+      const toggleBtn = document.getElementById("toggle-edit-btn");
+      const editForm = document.getElementById("edit-form");
+      const cancelBtn = document.getElementById("cancel-edit-btn");
+      const deleteBtn = document.getElementById("delete-book-btn");
+      const adminMsg = document.getElementById("admin-msg");
+
+      document.getElementById("edit-title").value = book.title;
+      document.getElementById("edit-author").value = book.author;
+      document.getElementById("edit-genre").value = book.genre || "";
+      document.getElementById("edit-isbn").value = book.isbn || "";
+      document.getElementById("edit-total-copies").value = book.total_copies ?? 0;
+      document.getElementById("edit-page-count").value = book.page_count ?? 1;
+      document.getElementById("edit-year").value = book.year ?? "";
+      document.getElementById("edit-cover-url").value = book.cover_url ?? "";
+      document.getElementById("edit-description").value = book.description ?? "";
+
+      toggleBtn.onclick = () => {
+        editForm.hidden = !editForm.hidden;
       };
 
-      try {
-        await DL.api(`/api/books/${book.id}`, { method: "PUT", body });
-        adminMsg.className = "alert success";
-        adminMsg.textContent = "Book details saved successfully!";
-        editForm.style.display = "none";
-        loadBookDetails(book.id, true);
-      } catch (err) {
-        adminMsg.className = "alert error";
-        adminMsg.textContent = err.message || "Failed to update book.";
-      }
-    };
+      cancelBtn.onclick = () => {
+        editForm.hidden = true;
+      };
 
-    deleteBtn.onclick = async () => {
-      if (!confirm(`Are you sure you want to soft-delete "${book.title}" from the catalog?`)) return;
-      try {
-        await DL.api(`/api/books/${book.id}`, { method: "DELETE" });
-        alert(`Book "${book.title}" deleted.`);
-        location.href = "/catalog.html";
-      } catch (err) {
-        adminMsg.className = "alert error";
-        adminMsg.textContent = err.message || "Failed to delete book.";
-      }
-    };
-  }
+      editForm.onsubmit = async (e) => {
+        e.preventDefault();
+        adminMsg.textContent = "";
+        const body = {
+          title: document.getElementById("edit-title").value.trim(),
+          author: document.getElementById("edit-author").value.trim(),
+          genre: document.getElementById("edit-genre").value.trim(),
+          isbn: document.getElementById("edit-isbn").value.trim(),
+          total_copies: parseInt(document.getElementById("edit-total-copies").value, 10),
+          page_count: parseInt(document.getElementById("edit-page-count").value, 10),
+          year: document.getElementById("edit-year").value ? parseInt(document.getElementById("edit-year").value, 10) : null,
+          cover_url: document.getElementById("edit-cover-url").value.trim() || null,
+          description: document.getElementById("edit-description").value.trim()
+        };
+
+        try {
+          await DL.api(`/api/books/${book.id}`, { method: "PUT", body });
+          adminMsg.className = "alert success";
+          adminMsg.textContent = "Book details saved successfully!";
+          editForm.hidden = true;
+          loadBook();
+        } catch (err) {
+          adminMsg.className = "alert error";
+          adminMsg.textContent = err.message || "Failed to update book.";
+        }
+      };
+
+      deleteBtn.onclick = async () => {
+        if (!confirm(`Are you sure you want to soft-delete "${book.title}" from the catalog?`)) return;
+        try {
+          await DL.api(`/api/books/${book.id}`, { method: "DELETE" });
+          alert(`Book "${book.title}" deleted.`);
+          location.href = "/catalog.html";
+        } catch (err) {
+          adminMsg.className = "alert error";
+          adminMsg.textContent = err.message || "Failed to delete book.";
+        }
+      };
+    }
+
+    loadBook();
+  })();
 </script>
 </body>
 </html>

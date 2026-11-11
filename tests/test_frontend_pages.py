@@ -70,7 +70,7 @@ def test_book_html_elements():
     assert 'id="booking-actions"' in content
     assert 'id="reading-section"' in content
     assert 'id="admin-section"' in content
-    assert "/api/bookings" in content
+    assert "DLBooking.mountBookActions" in content
 
 
 def test_bookings_html_elements():
@@ -79,8 +79,8 @@ def test_bookings_html_elements():
     assert "/js/app.js" in content
     assert "DL.requireLogin()" in content
     assert "/api/bookings/me" in content
-    assert "btn-borrow" in content
-    assert "btn-return" in content
+    assert 'data-action="borrow"' in content
+    assert 'data-action="return"' in content
 
 
 def test_admin_html_elements():

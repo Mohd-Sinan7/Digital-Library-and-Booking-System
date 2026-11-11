@@ -2,211 +2,189 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Bookings · Digital Library</title>
   <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/bookings.css">
   <script src="/js/app.js"></script>
+  <script src="/js/booking-actions.js"></script>
 </head>
 <body>
 <main>
   <h1>My Bookings</h1>
-  <p class="muted">Manage your active reservations, borrowed books, loan due dates, and return history.</p>
+  <ul id="summary" class="booking-summary" aria-label="Booking summary"></ul>
 
-  <div id="status-alert" role="status"></div>
+  <form class="row" id="filter-form">
+    <label for="status-filter">Status filter</label>
+    <select id="status-filter" name="status">
+      <option value="">All bookings</option>
+      <option value="active">Active (Reserved + Borrowed)</option>
+      <option value="reserved">Reserved</option>
+      <option value="borrowed">Borrowed</option>
+      <option value="overdue">Overdue</option>
+      <option value="returned">Returned</option>
+      <option value="cancelled">Cancelled</option>
+      <option value="expired">Expired</option>
+    </select>
+  </form>
 
-  <div class="row" style="margin-bottom: 16px;">
-    <label>Filter Status
-      <select id="status-filter">
-        <option value="">All Bookings</option>
-        <option value="active" selected>Active Only (Reserved & Borrowed)</option>
-        <option value="reserved">Reserved (Awaiting Pickup)</option>
-        <option value="borrowed">Borrowed (On Loan)</option>
-        <option value="returned">Returned</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-    </label>
-  </div>
-
-  <section>
-    <div id="bookings-list"></div>
-  </section>
+  <p id="status-msg" class="saved" role="status" aria-live="polite"></p>
+  <p id="error-msg" class="error" role="alert"></p>
+  <ul id="bookings-list" class="bookings-list"></ul>
 </main>
-
 <script>
-  // DLBS-45, DLBS-51: My bookings list, actions (borrow, return, cancel), due dates, and overdue alerts.
-  DL.requireLogin();
+  // DLBS-53: My Bookings screen (FR-B2, FR-B3, FR-B4, FR-B6, FR-B7, FR-B8, FR-B10).
+  (() => {
+    DL.requireLogin();
 
-  const statusAlert = document.getElementById("status-alert");
-  const bookingsContainer = document.getElementById("bookings-list");
-  const statusFilter = document.getElementById("status-filter");
+    const listEl = document.getElementById("bookings-list");
+    const summaryEl = document.getElementById("summary");
+    const filterEl = document.getElementById("status-filter");
+    const statusMsgEl = document.getElementById("status-msg");
+    const errorMsgEl = document.getElementById("error-msg");
+    const bookCache = new Map();
+    let cachedItems = [];
 
-  // In-memory cache for book details to avoid redundant network queries
-  const bookCache = new Map();
+    document.getElementById("filter-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+    });
 
-  async function getBookInfo(bookId) {
-    if (bookCache.has(bookId)) return bookCache.get(bookId);
-    try {
-      const book = await DL.api(`/api/books/${bookId}`);
-      bookCache.set(bookId, book);
-      return book;
-    } catch {
-      return { id: bookId, title: `Book #${bookId}`, author: "Library Catalog" };
-    }
-  }
-
-  function formatDate(isoStr) {
-    if (!isoStr) return "N/A";
-    const d = new Date(isoStr);
-    return isNaN(d.getTime()) ? isoStr : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  }
-
-  async function loadBookings() {
-    statusAlert.className = "alert info";
-    statusAlert.textContent = "Loading your bookings...";
-    bookingsContainer.innerHTML = "";
-
-    try {
-      const data = await DL.api("/api/bookings/me");
-      statusAlert.textContent = "";
-      statusAlert.className = "";
-
-      let items = data.items || [];
-      const filterVal = statusFilter.value;
-
-      if (filterVal === "active") {
-        items = items.filter((b) => b.is_active || b.status === "reserved" || b.status === "borrowed");
-      } else if (filterVal) {
-        items = items.filter((b) => b.status === filterVal);
+    async function fetchBookDetails(bookId) {
+      if (bookCache.has(bookId)) return bookCache.get(bookId);
+      try {
+        const book = await DL.api(`/api/books/${encodeURIComponent(bookId)}`);
+        bookCache.set(bookId, book);
+        return book;
+      } catch {
+        const fallback = { id: bookId, title: `Book #${bookId}`, author: "" };
+        bookCache.set(bookId, fallback);
+        return fallback;
       }
+    }
 
-      if (items.length === 0) {
-        bookingsContainer.innerHTML = `
-          <div class="panel" style="text-align: center; padding: 32px 16px;">
-            <p class="muted">No bookings match this filter.</p>
-            <p><a href="/catalog.html" class="primary" style="display: inline-block; padding: 7px 16px; text-decoration: none;">Browse Catalog to Borrow</a></p>
-          </div>
+    function renderSummary(items) {
+      const activeCount = items.filter((b) => b.is_active).length;
+      const reservedCount = items.filter((b) => b.status === "reserved").length;
+      const borrowedCount = items.filter((b) => b.status === "borrowed").length;
+      const overdueCount = items.filter((b) => b.overdue || b.is_overdue).length;
+
+      const cards = [
+        [`${activeCount} / 5`, "Active bookings"],
+        [reservedCount, "Reserved holds"],
+        [borrowedCount, "Currently borrowed"],
+        [overdueCount, "Overdue"],
+      ];
+      summaryEl.innerHTML = cards.map(([val, label]) =>
+        `<li><span class="stat-value">${DL.esc(val)}</span><span class="stat-label">${DL.esc(label)}</span></li>`
+      ).join("");
+    }
+
+    function matchesFilter(b, filterVal) {
+      if (!filterVal) return true;
+      if (filterVal === "active") return Boolean(b.is_active);
+      if (filterVal === "overdue") return Boolean(b.overdue || b.is_overdue);
+      return b.status === filterVal;
+    }
+
+    function actionButtonsHtml(b, title) {
+      const safeTitle = DL.esc(title);
+      if (b.status === "reserved") {
+        return `
+          <button type="button" class="action-btn primary" data-action="borrow"
+                  data-id="${DL.esc(b.id)}" aria-label="Borrow ${safeTitle}">Borrow</button>
+          <button type="button" class="action-btn danger" data-action="cancel"
+                  data-id="${DL.esc(b.id)}" aria-label="Cancel reservation for ${safeTitle}">Cancel</button>
         `;
+      }
+      if (b.status === "borrowed") {
+        return `
+          <button type="button" class="action-btn primary" data-action="return"
+                  data-id="${DL.esc(b.id)}" aria-label="Return ${safeTitle}">Return</button>
+        `;
+      }
+      return "";
+    }
+
+    async function renderList() {
+      const filtered = cachedItems.filter((b) => matchesFilter(b, filterEl.value));
+      if (!filtered.length) {
+        listEl.innerHTML = filterEl.value
+          ? `<li class="muted">No bookings match this filter.</li>`
+          : `<li class="muted">You have no bookings yet. Visit a <a href="/catalog.html">book page</a> to reserve or borrow a copy.</li>`;
         return;
       }
 
-      // Render cards
-      const htmlList = [];
-      for (const b of items) {
-        const book = await getBookInfo(b.book_id);
-        const isOverdue = b.is_overdue || b.overdue;
+      const uniqueIds = [...new Set(filtered.map((b) => b.book_id))];
+      await Promise.all(uniqueIds.map(fetchBookDetails));
 
-        let statusBadge = "";
-        let actionsHtml = "";
-
-        if (b.status === "reserved") {
-          statusBadge = `<span class="badge reserved">Reserved (Hold)</span>`;
-          actionsHtml = `
-            <button class="primary small btn-borrow" data-id="${b.id}">Borrow Book (14-Day Loan)</button>
-            <button class="secondary small btn-cancel" data-id="${b.id}">Cancel Hold</button>
-          `;
-        } else if (b.status === "borrowed") {
-          statusBadge = isOverdue
-            ? `<span class="badge overdue">OVERDUE</span>`
-            : `<span class="badge borrowed">Borrowed</span>`;
-          actionsHtml = `
-            <button class="primary small btn-return" data-id="${b.id}">Return Book</button>
-          `;
-        } else if (b.status === "returned") {
-          statusBadge = `<span class="badge returned">Returned</span>`;
-        } else if (b.status === "cancelled") {
-          statusBadge = `<span class="badge cancelled">Cancelled</span>`;
-        }
-
-        htmlList.push(`
-          <div class="booking-card" id="booking-${b.id}">
-            <div class="booking-info">
-              <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
-                ${statusBadge}
-                ${isOverdue ? '<span class="badge danger">Action Required</span>' : ''}
-              </div>
-              <h3><a href="/book.html?id=${encodeURIComponent(b.book_id)}">${DL.esc(book.title)}</a></h3>
-              <p class="author">${DL.esc(book.author)}</p>
-              <div class="booking-dates">
-                <span><strong>Created:</strong> ${formatDate(b.created_at || b.reserved_at)}</span>
-                ${b.status === 'reserved' && b.expires_at ? `<span><strong>Hold Expires:</strong> ${formatDate(b.expires_at)}</span>` : ''}
-                ${b.due_date ? `<span><strong>Due Date:</strong> ${formatDate(b.due_date)}</span>` : ''}
-                ${b.returned_at ? `<span><strong>Returned On:</strong> ${formatDate(b.returned_at)}</span>` : ''}
-              </div>
+      listEl.innerHTML = filtered.map((b) => {
+        const book = bookCache.get(b.book_id) || { title: `Book #${b.book_id}`, author: "" };
+        const title = book.title || `Book #${b.book_id}`;
+        const author = book.author ? `<p class="author">${DL.esc(book.author)}</p>` : "";
+        return `
+          <li class="booking-card" data-booking-id="${DL.esc(b.id)}">
+            <div class="booking-meta">
+              <h2><a href="/book.html?id=${encodeURIComponent(b.book_id)}">${DL.esc(title)}</a></h2>
+              ${author}
+              <div class="booking-badges">${DLBooking.statusBadgeHtml(b)}</div>
+              ${DLBooking.formatDatesHtml(b)}
             </div>
             <div class="booking-actions">
-              ${actionsHtml}
+              ${actionButtonsHtml(b, title)}
             </div>
-          </div>
-        `);
-      }
-
-      bookingsContainer.innerHTML = htmlList.join("");
-      attachActionListeners();
-    } catch (err) {
-      statusAlert.className = "alert error";
-      statusAlert.textContent = "Failed to load bookings: " + err.message;
+          </li>
+        `;
+      }).join("");
     }
-  }
 
-  function attachActionListeners() {
-    // Borrow Action
-    document.querySelectorAll(".btn-borrow").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.dataset.id;
-        btn.disabled = true;
-        try {
-          await DL.api(`/api/bookings/${id}/borrow`, { method: "POST" });
-          statusAlert.className = "alert success";
-          statusAlert.textContent = "Book borrowed successfully! Your 14-day loan has started.";
-          loadBookings();
-        } catch (err) {
-          btn.disabled = false;
-          statusAlert.className = "alert error";
-          statusAlert.textContent = err.message || "Failed to borrow book.";
+    async function load() {
+      errorMsgEl.textContent = "";
+      try {
+        const data = await DL.api("/api/bookings/me");
+        cachedItems = (data && data.items) || [];
+        renderSummary(cachedItems);
+        await renderList();
+      } catch (err) {
+        if (err && err.status === 401) return DL.requireLogin();
+        errorMsgEl.textContent = (err && err.message) || "Failed to load your bookings.";
+      }
+    }
+
+    filterEl.addEventListener("change", renderList);
+
+    listEl.addEventListener("click", async (event) => {
+      const btn = event.target.closest("button[data-action]");
+      if (!btn || btn.disabled) return;
+
+      const action = btn.dataset.action;
+      const bookingId = btn.dataset.id;
+      const card = btn.closest(".booking-card");
+      const buttons = card ? card.querySelectorAll("button.action-btn") : [btn];
+      buttons.forEach((b) => { b.disabled = true; });
+      errorMsgEl.textContent = "";
+      statusMsgEl.textContent = "";
+
+      try {
+        if (action === "borrow") {
+          const res = await DL.api(`/api/bookings/${bookingId}/borrow`, { method: "POST" });
+          statusMsgEl.textContent = `Borrowed successfully. Due on ${res.due_date}.`;
+        } else if (action === "return") {
+          await DL.api(`/api/bookings/${bookingId}/return`, { method: "POST" });
+          statusMsgEl.textContent = "Book returned and copy restored to catalog.";
+        } else if (action === "cancel") {
+          await DL.api(`/api/bookings/${bookingId}`, { method: "DELETE" });
+          statusMsgEl.textContent = "Reservation cancelled.";
         }
-      });
+        await load();
+      } catch (err) {
+        buttons.forEach((b) => { b.disabled = false; });
+        if (err && err.status === 401) return DL.requireLogin();
+        errorMsgEl.textContent = (err && err.message) || "Booking action failed.";
+      }
     });
 
-    // Return Action
-    document.querySelectorAll(".btn-return").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.dataset.id;
-        btn.disabled = true;
-        try {
-          await DL.api(`/api/bookings/${id}/return`, { method: "POST" });
-          statusAlert.className = "alert success";
-          statusAlert.textContent = "Book returned successfully. Thank you!";
-          loadBookings();
-        } catch (err) {
-          btn.disabled = false;
-          statusAlert.className = "alert error";
-          statusAlert.textContent = err.message || "Failed to return book.";
-        }
-      });
-    });
-
-    // Cancel Action
-    document.querySelectorAll(".btn-cancel").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.dataset.id;
-        if (!confirm("Are you sure you want to cancel this reservation?")) return;
-        btn.disabled = true;
-        try {
-          await DL.api(`/api/bookings/${id}`, { method: "DELETE" });
-          statusAlert.className = "alert success";
-          statusAlert.textContent = "Reservation cancelled successfully.";
-          loadBookings();
-        } catch (err) {
-          btn.disabled = false;
-          statusAlert.className = "alert error";
-          statusAlert.textContent = err.message || "Failed to cancel reservation.";
-        }
-      });
-    });
-  }
-
-  statusFilter.addEventListener("change", loadBookings);
-  loadBookings();
+    load();
+  })();
 </script>
 </body>
 </html>

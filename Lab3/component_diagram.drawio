@@ -1,0 +1,174 @@
+<mxfile host="Electron" modified="2026-11-09T16:00:00.000Z" agent="Mozilla/5.0" etag="DLBS-Lab3-Arch" version="22.1.2" type="device">
+  <diagram id="DLBS-Component-Architecture" name="DLBS System Component Diagram">
+    <mxGraphModel dx="1422" dy="880" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="950" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title Block -->
+        <mxCell id="title" value="&lt;b&gt;Digital Library and Booking System (DLBS) — UML Component Diagram&lt;/b&gt;&lt;br&gt;&lt;i&gt;Architectural Style: Layered Modular Monolith (Lab 3 Deliverable)&lt;/i&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#1e293b;" vertex="1" parent="1">
+          <mxGeometry x="320" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Subsystem Boundaries -->
+        <!-- Presentation Subsystem Boundary -->
+        <mxCell id="subsys_pres" value="&lt;b&gt;Presentation &amp;amp; Client Tier&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;rounded=1;arcSize=6;fontSize=13;startSize=26;" vertex="1" parent="1">
+          <mxGeometry x="50" y="80" width="1240" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- Component: Web UI -->
+        <mxCell id="comp_web_ui" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;Web UI Layer&lt;/b&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;HTML5 / CSS3 / Vanilla JS&lt;br&gt;App Shell, Catalog Browser,&lt;br&gt;Reading Dashboard, Auth Views&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0369a1;rounded=1;" vertex="1" parent="subsys_pres">
+          <mxGeometry x="360" y="35" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_web_ui_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_web_ui">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Component: CI/CD Pipeline -->
+        <mxCell id="comp_cicd" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;CI/CD Pipeline&lt;/b&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;GitHub Actions / Docker&lt;br&gt;Ruff (PEP 8) &amp;bull; Pytest (70% Gate)&lt;br&gt;Multi-Stage Container Build&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;rounded=1;" vertex="1" parent="subsys_pres">
+          <mxGeometry x="930" y="35" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_cicd_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_cicd">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Core Modular Monolith Subsystem -->
+        <mxCell id="subsys_core" value="&lt;b&gt;Core Application Tier (FastAPI Modular Monolith — In-Process Application Space)&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#64748b;fontColor=#1e293b;rounded=1;arcSize=4;fontSize=14;startSize=30;" vertex="1" parent="1">
+          <mxGeometry x="50" y="240" width="1240" height="520" as="geometry" />
+        </mxCell>
+
+        <!-- Component: API Backend Router -->
+        <mxCell id="comp_api" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;FastAPI Gateway / Router&lt;/b&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;src/main.py&lt;br&gt;Request Validation &amp;bull; Routing&lt;br&gt;Exception Handling &amp;bull; CORS&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#e0e7ff;strokeColor=#6366f1;fontColor=#3730a3;rounded=1;" vertex="1" parent="subsys_core">
+          <mxGeometry x="340" y="45" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_api_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_api">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Module 1: Recommendation Engine -->
+        <mxCell id="comp_rec" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;Recommendation Engine&lt;/b&gt;&lt;br&gt;&lt;i&gt;Member 1 (Sinan)&lt;/i&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;&amp;bull; Popularity Baseline (FR-R3)&lt;br&gt;&amp;bull; TF-IDF Content-Based (FR-R2)&lt;br&gt;&amp;bull; Hybrid &amp;amp; Explanations (FR-R5)&lt;br&gt;&amp;bull; In-Memory TTL Cache (NFR-R1)&lt;br&gt;&amp;bull; Pluggable Interface (NFR-R2)&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#92400e;rounded=1;" vertex="1" parent="subsys_core">
+          <mxGeometry x="930" y="190" width="240" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_rec_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_rec">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Module 2: Catalog Service -->
+        <mxCell id="comp_catalog" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;Book Catalog Service&lt;/b&gt;&lt;br&gt;&lt;i&gt;Member 2 (Rishyendra)&lt;/i&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;&amp;bull; Admin Book CRUD (FR-C1..C3)&lt;br&gt;&amp;bull; Multi-field Search (FR-C4)&lt;br&gt;&amp;bull; Genre Filter &amp;amp; Pagination (FR-C5)&lt;br&gt;&amp;bull; Availability Checks (FR-C6)&lt;br&gt;&amp;bull; Soft-deletion Integrity&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#dcfce7;strokeColor=#22c55e;fontColor=#15803d;rounded=1;" vertex="1" parent="subsys_core">
+          <mxGeometry x="50" y="190" width="230" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_catalog_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_catalog">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Module 3: Users & Reading Tracking -->
+        <mxCell id="comp_users" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;Users &amp;amp; Reading Service&lt;/b&gt;&lt;br&gt;&lt;i&gt;Member 3 (Sai Mukesh)&lt;/i&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;&amp;bull; JWT Auth &amp;amp; bcrypt Hashing&lt;br&gt;&amp;bull; Role Guards (Admin / Member)&lt;br&gt;&amp;bull; Reading Status &amp;amp; Progress (FR-U5)&lt;br&gt;&amp;bull; Reading Statistics (FR-U8)&lt;br&gt;&amp;bull; User Profile Management&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#ede9fe;strokeColor=#8b5cf6;fontColor=#5b21b6;rounded=1;" vertex="1" parent="subsys_core">
+          <mxGeometry x="340" y="190" width="260" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_users_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_users">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Module 4: Booking & Borrowing Service -->
+        <mxCell id="comp_bookings" value="&amp;laquo;component&amp;raquo;&lt;br&gt;&lt;b&gt;Booking &amp;amp; Borrowing Service&lt;/b&gt;&lt;br&gt;&lt;i&gt;Member 4 (Rushi Eswar)&lt;/i&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;&amp;bull; FSM Lifecycle (DLBS-45)&lt;br&gt;&amp;bull; 2-Day Hold / 14-Day Loans&lt;br&gt;&amp;bull; Concurrency (BEGIN IMMEDIATE)&lt;br&gt;&amp;bull; 5 Active Bookings Cap (FR-B8)&lt;br&gt;&amp;bull; Auto Stock Reconciliation&lt;/font&gt;" style="html=1;dropTarget=0;whiteSpace=wrap;fillColor=#ffe4e6;strokeColor=#f43f5e;fontColor=#9f1239;rounded=1;" vertex="1" parent="subsys_core">
+          <mxGeometry x="650" y="190" width="240" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="comp_bookings_icon" value="" style="shape=module;jettyWidth=8;jettyHeight=4;" vertex="1" parent="comp_bookings">
+          <mxGeometry x="1" width="20" height="20" relative="1" as="geometry">
+            <mxPoint x="-27" y="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Database Subsystem -->
+        <mxCell id="subsys_db" value="&lt;b&gt;Persistence Subsystem&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;rounded=1;arcSize=6;fontSize=13;startSize=26;" vertex="1" parent="1">
+          <mxGeometry x="50" y="790" width="1240" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="comp_db" value="&amp;laquo;database&amp;raquo;&lt;br&gt;&lt;b&gt;Relational Database&lt;/b&gt;&lt;hr&gt;&lt;font size=&quot;1&quot;&gt;SQLAlchemy 2.0 ORM&lt;br&gt;SQLite (In-Memory Testing) / PostgreSQL (Docker)&lt;br&gt;Shared Primary Keys (`book_id`, `user_id`)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f1f5f9;strokeColor=#475569;fontColor=#1e293b;" vertex="1" parent="subsys_db">
+          <mxGeometry x="470" y="35" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- INTERFACES (Lollipops and Sockets) -->
+
+        <!-- REST Interface UI to API -->
+        <mxCell id="edge_ui_api" value="REST / JSON over HTTP&lt;br&gt;(Bearer JWT Auth)" style="html=1;verticalAlign=bottom;endArrow=block;dashed=1;endSize=8;rounded=0;strokeColor=#0284c7;strokeWidth=2;fontColor=#0369a1;" edge="1" parent="1" source="comp_web_ui" target="comp_api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API Routes to Internal Services -->
+        <mxCell id="edge_api_catalog" value="/api/catalog/*" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#22c55e;strokeWidth=1.5;fontColor=#15803d;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_api" target="comp_catalog">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_api_users" value="/api/auth/*, /api/users/*,&lt;br&gt;/api/reading/*" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#8b5cf6;strokeWidth=1.5;fontColor=#5b21b6;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_api" target="comp_users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_api_bookings" value="/api/bookings/*" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#f43f5e;strokeWidth=1.5;fontColor=#9f1239;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_api" target="comp_bookings">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_api_rec" value="/api/recommendations/me&lt;br&gt;/api/recommendations/refresh" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#f59e0b;strokeWidth=1.5;fontColor=#92400e;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_api" target="comp_rec">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- In-Process Module-to-Module Connections -->
+        <!-- Rec to Catalog -->
+        <mxCell id="edge_rec_catalog" value="catalog.get_books(),&lt;br&gt;catalog.get_book(id)&lt;br&gt;&lt;i&gt;[In-process call]&lt;/i&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=1;strokeColor=#16a34a;strokeWidth=2;fontColor=#166534;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;" edge="1" parent="subsys_core" source="comp_rec" target="comp_catalog">
+          <mxGeometry x="-0.02" y="20" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="750" y="390" />
+              <mxPoint x="400" y="390" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Rec to Reading -->
+        <mxCell id="edge_rec_reading" value="reading.get_history(user_id)&lt;br&gt;&lt;i&gt;[In-process call]&lt;/i&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#7c3aed;strokeWidth=2;fontColor=#6d28d9;exitX=0;exitY=0.4;exitDx=0;exitDy=0;entryX=1;entryY=0.4;entryDx=0;entryDy=0;" edge="1" parent="subsys_core" source="comp_rec" target="comp_users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Bookings to Catalog -->
+        <mxCell id="edge_bookings_catalog" value="catalog.get_availability(),&lt;br&gt;catalog.change_copies()&lt;br&gt;&lt;i&gt;[In-process call]&lt;/i&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=1;strokeColor=#059669;strokeWidth=2;fontColor=#047857;exitX=0;exitY=0.6;exitDx=0;exitDy=0;entryX=1;entryY=0.6;entryDx=0;entryDy=0;" edge="1" parent="subsys_core" source="comp_bookings" target="comp_catalog">
+          <mxGeometry x="0.05" y="-15" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="550" y="320" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Services to Database -->
+        <mxCell id="edge_cat_db" value="SQLAlchemy Session" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#475569;strokeWidth=1.5;fontColor=#334155;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_catalog" target="comp_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_users_db" value="SQLAlchemy Session" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#475569;strokeWidth=1.5;fontColor=#334155;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_users" target="comp_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_bookings_db" value="BEGIN IMMEDIATE" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#be123c;strokeWidth=2;fontColor=#9f1239;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.6;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_bookings" target="comp_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_rec_db" value="Reading records query" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#475569;strokeWidth=1.5;fontColor=#334155;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="comp_rec" target="comp_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

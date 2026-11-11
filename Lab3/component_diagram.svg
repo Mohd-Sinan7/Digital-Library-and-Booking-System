@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1350 960" width="100%" height="100%">
+  <defs>
+    <style>
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 20px; font-weight: bold; fill: #1e293b; text-anchor: middle; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; font-style: italic; fill: #64748b; text-anchor: middle; }
+      .swim-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: bold; fill: #334155; }
+      .comp-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: bold; }
+      .comp-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 500; }
+      .comp-body { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; fill: #334155; }
+      .edge-label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 600; text-anchor: middle; }
+      .edge-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10px; font-style: italic; text-anchor: middle; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16a34a" />
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrow-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#be123c" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1350" height="960" fill="#f8fafc" />
+
+  <!-- Title Block -->
+  <text x="675" y="40" class="title">Digital Library and Booking System (DLBS) — UML Component Diagram</text>
+  <text x="675" y="62" class="subtitle">Lab 3 Architectural Specification: Layered Modular Monolith with In-Process Component Interfaces</text>
+
+  <!-- ================= Presentation Subsystem ================= -->
+  <rect x="50" y="85" width="1250" height="130" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+  <rect x="50" y="85" width="1250" height="28" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" />
+  <text x="70" y="104" class="swim-title">1. Presentation &amp; Tooling Subsystem</text>
+
+  <!-- Component: Web UI -->
+  <g transform="translate(350, 125)">
+    <rect width="250" height="75" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5" />
+    <rect x="225" y="8" width="16" height="12" fill="#bae6fd" stroke="#0284c7" />
+    <rect x="221" y="10" width="8" height="3" fill="#bae6fd" stroke="#0284c7" />
+    <rect x="221" y="15" width="8" height="3" fill="#bae6fd" stroke="#0284c7" />
+    <text x="110" y="24" class="comp-title" fill="#0369a1" text-anchor="middle">&laquo;component&raquo; Web UI</text>
+    <text x="110" y="42" class="comp-body" fill="#0284c7" text-anchor="middle">HTML5 / Vanilla JS / CSS3</text>
+    <text x="110" y="58" class="comp-body" fill="#64748b" text-anchor="middle">App Shell, Catalog Browser, Reading UI</text>
+  </g>
+
+  <!-- Component: CI/CD Pipeline -->
+  <g transform="translate(980, 125)">
+    <rect width="270" height="75" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5" />
+    <text x="135" y="24" class="comp-title" fill="#334155" text-anchor="middle">&laquo;component&raquo; CI/CD Pipeline</text>
+    <text x="135" y="42" class="comp-body" fill="#475569" text-anchor="middle">GitHub Actions &amp; Docker Engine</text>
+    <text x="135" y="58" class="comp-body" fill="#64748b" text-anchor="middle">Ruff (PEP 8) • Pytest (70% Gate)</text>
+  </g>
+
+  <!-- ================= Core Modular Monolith ================= -->
+  <rect x="50" y="235" width="1250" height="530" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="2" />
+  <rect x="50" y="235" width="1250" height="32" rx="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2" />
+  <text x="70" y="256" class="swim-title">2. Core Application Subsystem (FastAPI Modular Monolith — Unified Process Space)</text>
+
+  <!-- Component: API Backend Gateway -->
+  <g transform="translate(330, 285)">
+    <rect width="290" height="85" rx="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5" />
+    <text x="145" y="24" class="comp-title" fill="#3730a3" text-anchor="middle">&laquo;component&raquo; FastAPI API Gateway</text>
+    <text x="145" y="44" class="comp-body" fill="#4338ca" text-anchor="middle">src/main.py • Router Aggregator</text>
+    <text x="145" y="62" class="comp-body" fill="#64748b" text-anchor="middle">JWT Verification &amp; Dependency Injection</text>
+  </g>
+
+  <!-- Module 2: Catalog Service -->
+  <g transform="translate(70, 420)">
+    <rect width="250" height="175" rx="6" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5" />
+    <text x="125" y="25" class="comp-title" fill="#15803d" text-anchor="middle">&laquo;component&raquo; Book Catalog</text>
+    <text x="125" y="42" class="comp-sub" fill="#166534" text-anchor="middle">Member 2: M Rishyendra</text>
+    <line x1="15" y1="50" x2="235" y2="50" stroke="#86efac" stroke-width="1" />
+    <text x="20" y="70" class="comp-body">• create_book() / update()</text>
+    <text x="20" y="90" class="comp-body">• delete_book() [Soft Delete]</text>
+    <text x="20" y="110" class="comp-body">• get_books() [Multi-field Search]</text>
+    <text x="20" y="130" class="comp-body">• get_availability(book_id)</text>
+    <text x="20" y="150" class="comp-body">• change_available_copies()</text>
+  </g>
+
+  <!-- Module 3: Users & Reading Tracking -->
+  <g transform="translate(350, 420)">
+    <rect width="260" height="175" rx="6" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.5" />
+    <text x="130" y="25" class="comp-title" fill="#5b21b6" text-anchor="middle">&laquo;component&raquo; Users &amp; Reading</text>
+    <text x="130" y="42" class="comp-sub" fill="#6d28d9" text-anchor="middle">Member 3: N Sai Mukesh Reddy</text>
+    <line x1="15" y1="50" x2="245" y2="50" stroke="#c4b5fd" stroke-width="1" />
+    <text x="20" y="70" class="comp-body">• register() &amp; authenticate()</text>
+    <text x="20" y="90" class="comp-body">• require_admin() RBAC Guard</text>
+    <text x="20" y="110" class="comp-body">• update_progress() &amp; status</text>
+    <text x="20" y="130" class="comp-body">• reading.get_history(user_id)</text>
+    <text x="20" y="150" class="comp-body">• get_reading_stats(user_id)</text>
+  </g>
+
+  <!-- Module 4: Booking & Borrowing -->
+  <g transform="translate(640, 420)">
+    <rect width="260" height="175" rx="6" fill="#ffe4e6" stroke="#f43f5e" stroke-width="1.5" />
+    <text x="130" y="25" class="comp-title" fill="#9f1239" text-anchor="middle">&laquo;component&raquo; Booking &amp; Borrowing</text>
+    <text x="130" y="42" class="comp-sub" fill="#be123c" text-anchor="middle">Member 4: M Rushieswar Reddy</text>
+    <line x1="15" y1="50" x2="245" y2="50" stroke="#fecdd3" stroke-width="1" />
+    <text x="20" y="70" class="comp-body">• reserve_book() [2-day hold]</text>
+    <text x="20" y="90" class="comp-body">• borrow_book() [14-day loan]</text>
+    <text x="20" y="110" class="comp-body">• return_book() &amp; cancel()</text>
+    <text x="20" y="130" class="comp-body">• Concurrency: BEGIN IMMEDIATE</text>
+    <text x="20" y="150" class="comp-body">• 5 Active Bookings Limit Cap</text>
+  </g>
+
+  <!-- Module 1: Recommendation Engine -->
+  <g transform="translate(930, 420)">
+    <rect width="320" height="175" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" />
+    <text x="160" y="25" class="comp-title" fill="#92400e" text-anchor="middle">&laquo;component&raquo; Recommendation Engine</text>
+    <text x="160" y="42" class="comp-sub" fill="#b45309" text-anchor="middle">Member 1: Mohammed Sinan M T (Architecture Lead)</text>
+    <line x1="15" y1="50" x2="305" y2="50" stroke="#fde68a" stroke-width="1" />
+    <text x="20" y="70" class="comp-body">• PopularityRecommender (FR-R3)</text>
+    <text x="20" y="90" class="comp-body">• ContentBasedRecommender [TF-IDF] (FR-R2)</text>
+    <text x="20" y="110" class="comp-body">• HybridRecommender (&alpha;=0.7) (FR-R5)</text>
+    <text x="20" y="130" class="comp-body">• RecommendationCache [5-min TTL] (NFR-R1)</text>
+    <text x="20" y="150" class="comp-body">• refresh_recommendations() Admin (FR-R6)</text>
+  </g>
+
+  <!-- ================= Persistence Subsystem ================= -->
+  <rect x="50" y="785" width="1250" height="135" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" />
+  <rect x="50" y="785" width="1250" height="28" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" />
+  <text x="70" y="804" class="swim-title">3. Persistence Subsystem</text>
+
+  <!-- Database Cylinder -->
+  <g transform="translate(475, 825)">
+    <path d="M 0 15 C 0 5, 400 5, 400 15 L 400 70 C 400 80, 0 80, 0 70 Z" fill="#f1f5f9" stroke="#475569" stroke-width="1.5" />
+    <path d="M 0 15 C 0 25, 400 25, 400 15 C 400 5, 0 5, 0 15" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+    <text x="200" y="42" class="comp-title" fill="#1e293b" text-anchor="middle">&laquo;database&raquo; Relational Database Engine</text>
+    <text x="200" y="58" class="comp-body" fill="#475569" text-anchor="middle">SQLAlchemy 2.0 ORM • SQLite (In-Memory Testing) / PostgreSQL (Docker)</text>
+    <text x="200" y="72" class="comp-body" fill="#64748b" text-anchor="middle">Shared Primary Keys: books.id (book_id), users.id (user_id)</text>
+  </g>
+
+  <!-- ================= CONNECTIONS & EDGES ================= -->
+  <!-- UI to API -->
+  <path d="M 475 200 L 475 285" fill="none" stroke="#0284c7" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrow-blue)" />
+  <text x="495" y="240" class="edge-label" fill="#0284c7" text-anchor="start">REST / JSON over HTTP (Bearer JWT)</text>
+
+  <!-- API to Catalog -->
+  <path d="M 370 370 L 195 370 L 195 420" fill="none" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)" />
+  <text x="235" y="395" class="edge-label" fill="#15803d">/api/catalog/*</text>
+
+  <!-- API to Users -->
+  <path d="M 475 370 L 475 420" fill="none" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arrow-purple)" />
+  <text x="495" y="395" class="edge-label" fill="#5b21b6" text-anchor="start">/api/auth/*, /users/*, /reading/*</text>
+
+  <!-- API to Bookings -->
+  <path d="M 570 370 L 770 370 L 770 420" fill="none" stroke="#f43f5e" stroke-width="1.5" marker-end="url(#arrow-rose)" />
+  <text x="730" y="395" class="edge-label" fill="#9f1239">/api/bookings/*</text>
+
+  <!-- API to Recommender -->
+  <path d="M 620 325 L 1090 325 L 1090 420" fill="none" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="940" y="320" class="edge-label" fill="#92400e">/api/recommendations/me, /refresh</text>
+
+  <!-- In-Process Module-to-Module Calls -->
+  <!-- Rec -> Catalog -->
+  <path d="M 930 550 C 650 670, 400 670, 320 560" fill="none" stroke="#16a34a" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrow-green)" />
+  <rect x="540" y="635" width="220" height="28" rx="4" fill="#ffffff" stroke="#16a34a" />
+  <text x="650" y="649" class="edge-label" fill="#15803d">catalog.get_books(), get_book(id)</text>
+  <text x="650" y="660" class="edge-sub" fill="#166534">[In-process Python Call]</text>
+
+  <!-- Rec -> Reading -->
+  <path d="M 930 500 L 610 500" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrow-purple)" />
+  <rect x="680" y="488" width="190" height="26" rx="4" fill="#ffffff" stroke="#7c3aed" />
+  <text x="775" y="501" class="edge-label" fill="#5b21b6">reading.get_history(user_id)</text>
+  <text x="775" y="511" class="edge-sub" fill="#6d28d9">[In-process Python Call]</text>
+
+  <!-- Bookings -> Catalog -->
+  <path d="M 640 460 C 500 460, 400 460, 320 460" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrow-green)" />
+  <rect x="420" y="448" width="160" height="26" rx="4" fill="#ffffff" stroke="#059669" />
+  <text x="500" y="461" class="edge-label" fill="#047857">catalog.get_availability()</text>
+  <text x="500" y="471" class="edge-sub" fill="#047857">[In-process Python Call]</text>
+
+  <!-- Services to Database -->
+  <path d="M 195 595 L 195 720 L 530 720 L 530 825" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+  <path d="M 480 595 L 480 825" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+  <path d="M 770 595 L 770 825" fill="none" stroke="#be123c" stroke-width="2" marker-end="url(#arrow-rose)" />
+  <path d="M 1090 595 L 1090 750 L 820 750 L 820 825" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <text x="785" y="700" class="edge-label" fill="#be123c" text-anchor="start">BEGIN IMMEDIATE</text>
+  <text x="495" y="760" class="edge-label" fill="#475569" text-anchor="start">SQLAlchemy Session</text>
+
+</svg>

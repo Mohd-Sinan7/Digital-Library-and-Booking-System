@@ -100,3 +100,44 @@ def test_index_html_elements():
     assert "hero-search" in content
     assert 'id="recommendations-grid"' in content
     assert "/api/recommendations/me" in content
+
+
+def test_booking_service_catalog_is_deleted_bridge(tmp_path):
+    """BookingService bridges catalog is_deleted and bookings without created_at."""
+    import sqlite3
+
+    import pytest
+
+    from src.bookings.rules import BookRemovedError
+    from src.bookings.service import BookingService
+
+    db_file = tmp_path / "shared_catalog.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute(
+        "CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, "
+        "available_copies INTEGER NOT NULL, is_deleted INTEGER NOT NULL DEFAULT 0)"
+    )
+    conn.execute(
+        "CREATE TABLE bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, "
+        "book_id INTEGER NOT NULL, status TEXT NOT NULL, reserved_at TEXT NOT NULL, "
+        "expires_at TEXT, borrowed_at TEXT, due_date TEXT, returned_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO books (id, title, available_copies, is_deleted) VALUES (1, 'A', 2, 0)"
+    )
+    conn.execute(
+        "INSERT INTO books (id, title, available_copies, is_deleted) VALUES (2, 'B', 2, 1)"
+    )
+    conn.commit()
+    conn.close()
+
+    svc = BookingService(str(db_file))
+    booking = svc.reserve_book(user_id=1, book_id=1)
+    assert booking.book_id == 1
+    assert svc.get_book(1)["available_copies"] == 1
+
+    with pytest.raises(BookRemovedError):
+        svc.reserve_book(user_id=1, book_id=2)
+    svc.cancel_booking(booking.id, user_id=1)
+    svc._conn.close()
+

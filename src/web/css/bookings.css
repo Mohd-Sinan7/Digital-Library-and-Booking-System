@@ -1,0 +1,197 @@
+/* Booking UI styles (DLBS-53) built inside Member 2's app shell tokens. */
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.booking-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 18px;
+}
+
+.booking-summary li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.booking-summary .stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.booking-summary .stat-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.bookings-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.booking-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.booking-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+  flex: 1 1 320px;
+}
+
+.booking-meta h2,
+.booking-meta h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.booking-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.badge-reserved {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: #eef4fc;
+}
+
+.badge-borrowed {
+  color: var(--ok);
+  border-color: var(--ok);
+  background: #eaf7ee;
+}
+
+.badge-overdue {
+  color: var(--error);
+  border-color: var(--error);
+  background: #fdebec;
+  font-weight: 700;
+}
+
+.badge-returned,
+.badge-cancelled,
+.badge-expired {
+  color: var(--muted);
+  border-color: var(--border);
+  background: #f2f4f7;
+}
+
+.booking-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.book-actions-box .booking-actions {
+  margin-top: 10px;
+}
+
+button.action-btn {
+  min-block-size: 38px;
+  min-inline-size: 44px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button.action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.action-btn.danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+button.action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.book-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .book-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.book-cover {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--border);
+}
+
+.book-actions-box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.saved {
+  color: var(--ok);
+  font-weight: 500;
+}

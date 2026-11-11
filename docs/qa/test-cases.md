@@ -35,7 +35,7 @@
 | **TC-B21** | FR-B6 / DLBS-51 | Booking has due date in past (`due_date < today`). | Inspect `Booking.is_overdue` property on read. | `is_overdue` evaluates to `True` for borrowed booking with past due date. | Evaluates dynamically without requiring background cron worker. | **Pass** |
 | **TC-B22** | FR-B7 / DLBS-51 | Member with multiple past and current loans accesses personal bookings. | Call `GET /api/bookings/me` with JWT header. | Payload includes status badge metadata, formatted timestamps, and due dates. | 200 OK; full booking history array returned with correct badges. | **Pass** |
 | **TC-B23** | FR-B10 / DLBS-51 | Reservation placed on 1 Nov 2026 at 10:00 UTC. | Advance simulated time past 3 Nov 2026 10:00 UTC (> 2 days hold). | Hold expires automatically; status transitions to `expired`; copy restored. | Expired status dynamically confirmed and catalog copy restored. | **Pass** |
-| **TC-B24** | DLBS-56 | Full test suite executed with coverage measurement. | Execute `pytest --cov=src --cov-report=term-missing` and review RTM. | 100% of functional requirements covered; test summary documented. | All 350 tests passing; 97% overall coverage; QA sign-off complete. | **Pass** |
+| **TC-B24** | DLBS-56 | Full test suite executed with coverage measurement. | Execute `pytest --cov=src --cov-report=term-missing` and review RTM. | 100% of functional requirements covered; test summary documented. | All 372 tests passing; 97% overall coverage; QA sign-off complete. | **Pass** |
 | **TC-B25** | NFR-B1 | High contention test: 1 available copy with 20 parallel threads. | Concurrently dispatch 20 `reserve_book` calls via `ThreadPoolExecutor`. | Exact atomicity maintained: 1 reservation succeeds, 19 rejected with 409, copy = 0. | Verified: 1 success, 19 conflicts, available copies = 0, no inventory negative underflow. | **Pass** |
 
 ---
@@ -110,15 +110,13 @@
 
 ## 6. Execution Summary and Release Quality Gate Results
 
-- **Total Test Cases Specified:** 55 test cases across all modules and cross-cutting components.
-- **Automated Tests Executed:** **362 automated tests passing** in test suite (`tests/`).
-- **Regression Pass Rate:** **100% (362 / 362 passed, 0 failures, 0 errors)**.
+
 - **Critical Defects Open:** **0**.
 - **Module Statement Coverage:**
-  - `src/bookings`: **99%** (Target: $\ge 70\%$, NFR-B3)
+  - `src/bookings`: **97%** (Target: $\ge 70\%$, NFR-B3)
   - `src/catalog`: **97%**
   - `src/users`: **98%**
   - `src/recommender`: **93%**
   - `src/db.py` & `src/main.py`: **100%**
-  - **Overall Project Statement Coverage:** **97%** (1310 / 1355 statements covered).
+  - **Overall Project Statement Coverage:** **97%** (1436 statements covered).
 - **Quality Gate Assessment:** **APPROVED / READY FOR SPRINT 2 CLOSE & HARDENING REHEARSAL**.

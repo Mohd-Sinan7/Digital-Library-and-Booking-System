@@ -6,8 +6,10 @@ Implements reservation, borrowing, return, cancellation, and concurrency protect
 - FR-B3: Status becomes returned and available copies rise by one; non-borrowed rejected.
 - FR-B4: Status becomes cancelled and available copies rise by one; borrowed cannot cancel.
 - FR-B5: Counts checked after every action in TC-B01, TC-B03, TC-B05 and TC-B08.
+- FR-B6: A borrowed booking read after its due date shows overdue = true.
+- FR-B7: GET /api/bookings/me lists only the member's bookings with status, dates and overdue flag.
 - FR-B9: Reserving a book with 0 available copies returns conflict/error and changes nothing.
-- FR-B10: Hold expires after 2 days; copy becomes available again.
+- FR-B10: Hold expires after 2 days; copy becomes available again (dynamic on-read expiry).
 - NFR-B1: In concurrent reservations, exactly one succeeds and copies never drop below 0.
 """
 
@@ -139,7 +141,96 @@ class BookingService:
     def validate_return(self, status: str) -> None:
         ensure_can_return(status)
 
-    def reserve_book(self, user_id: int, book_id: int) -> Booking:
+    def _row_to_booking(
+        self,
+        cursor: sqlite3.Cursor,
+        row: tuple,
+        as_of: date | None = None,
+    ) -> Booking:
+        """Parse DB row into domain model, applying dynamic hold expiry on read (FR-B10)."""
+        (
+            b_id,
+            b_user_id,
+            b_book_id,
+            status_str,
+            created_at_str,
+            due_date_str,
+            returned_at_str,
+            reserved_at_str,
+            expires_at_str,
+            borrowed_at_str,
+        ) = row
+
+        current_date = as_of or date.today()
+
+        # Dynamic hold expiry on read (FR-B10):
+        # A reservation read > 2 days after creation shows expired and copy is restored.
+        if status_str == BookingStatus.RESERVED.value:
+            exp_date: date | None = None
+            if expires_at_str:
+                exp_date = date.fromisoformat(expires_at_str.split("T")[0])
+            elif reserved_at_str:
+                res_d = date.fromisoformat(reserved_at_str.split("T")[0])
+                exp_date = calculate_hold_expiry(res_d)
+
+            if exp_date is not None and current_date > exp_date:
+                # Atomically expire hold and restore copy
+                cursor.execute(
+                    "UPDATE bookings SET status = ? WHERE id = ? AND status = ?",
+                    (BookingStatus.EXPIRED.value, b_id, BookingStatus.RESERVED.value),
+                )
+                if cursor.rowcount == 1:
+                    cursor.execute(
+                        "UPDATE books SET available_copies = available_copies + 1 WHERE id = ?",
+                        (b_book_id,),
+                    )
+                    self._conn.commit()
+                status_str = BookingStatus.EXPIRED.value
+
+        created_d = (
+            date.fromisoformat(created_at_str.split("T")[0]) if created_at_str else None
+        )
+        reserved_d = (
+            date.fromisoformat(reserved_at_str.split("T")[0])
+            if reserved_at_str
+            else created_d
+        )
+        expires_d = (
+            date.fromisoformat(expires_at_str.split("T")[0])
+            if expires_at_str
+            else (calculate_hold_expiry(reserved_d) if reserved_d else None)
+        )
+        borrowed_d = (
+            date.fromisoformat(borrowed_at_str.split("T")[0])
+            if borrowed_at_str
+            else None
+        )
+        due_d = date.fromisoformat(due_date_str.split("T")[0]) if due_date_str else None
+        returned_d = (
+            date.fromisoformat(returned_at_str.split("T")[0])
+            if returned_at_str
+            else None
+        )
+
+        return Booking(
+            id=b_id,
+            user_id=b_user_id,
+            book_id=b_book_id,
+            status=BookingStatus(status_str),
+            reserved_at=reserved_d,
+            expires_at=expires_d,
+            borrowed_at=borrowed_d,
+            due_date=due_d,
+            returned_at=returned_d,
+            created_at=created_d,
+        )
+
+    def reserve_book(
+        self,
+        user_id: int,
+        book_id: int,
+        reserved_on: date | None = None,
+    ) -> Booking:
         """Reserve a book copy with strict transaction safety (FR-B1, FR-B9, NFR-B1)."""
         with self._lock:
             cursor = self._conn.cursor()
@@ -158,7 +249,9 @@ class BookingService:
                     raise BookRemovedError(f"Book '{title}' is removed from catalog.")
 
                 if available_copies < 1:
-                    raise NoCopiesAvailableError(f"No copies of '{title}' are currently available.")
+                    raise NoCopiesAvailableError(
+                        f"No copies of '{title}' are currently available."
+                    )
 
                 cursor.execute(
                     """
@@ -182,11 +275,13 @@ class BookingService:
                     (book_id,),
                 )
                 if cursor.rowcount != 1:
-                    raise NoCopiesAvailableError(f"No copies of '{title}' are currently available.")
+                    raise NoCopiesAvailableError(
+                        f"No copies of '{title}' are currently available."
+                    )
 
-                today = date.today()
-                today_str = today.isoformat()
-                expires = calculate_hold_expiry(today)
+                res_date = reserved_on or date.today()
+                res_date_str = res_date.isoformat()
+                expires = calculate_hold_expiry(res_date)
                 expires_str = expires.isoformat()
                 cursor.execute(
                     """
@@ -199,9 +294,9 @@ class BookingService:
                         user_id,
                         book_id,
                         BookingStatus.RESERVED.value,
-                        today_str,
+                        res_date_str,
                         expires_str,
-                        today_str,
+                        res_date_str,
                     ),
                 )
                 booking_id = cursor.lastrowid
@@ -212,23 +307,29 @@ class BookingService:
                     user_id=user_id,
                     book_id=book_id,
                     status=BookingStatus.RESERVED,
-                    reserved_at=today,
+                    reserved_at=res_date,
                     expires_at=expires,
-                    created_at=today,
+                    created_at=res_date,
                 )
             except Exception:
                 self._conn.rollback()
                 raise
 
-    def borrow_book(self, booking_id: int, user_id: int | None = None) -> Booking:
-        """Transition a reserved booking to borrowed with 14-day due date (BR-05, BR-06)."""
+    def borrow_book(
+        self,
+        booking_id: int,
+        user_id: int | None = None,
+        borrowed_on: date | None = None,
+    ) -> Booking:
+        """Transition a reserved booking to borrowed with 14-day due date (FR-B2, FR-B6, FR-B10)."""
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute("BEGIN IMMEDIATE")
             try:
                 cursor.execute(
                     """
-                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at,
+                           reserved_at, expires_at, borrowed_at
                     FROM bookings WHERE id = ?
                     """,
                     (booking_id,),
@@ -237,13 +338,59 @@ class BookingService:
                 if not row:
                     raise BookingRuleError(f"Booking {booking_id} not found.")
 
-                b_id, b_user_id, b_book_id, status_str, created_at_str, _, _ = row
+                (
+                    b_id,
+                    b_user_id,
+                    b_book_id,
+                    status_str,
+                    created_at_str,
+                    _,
+                    _,
+                    reserved_at_str,
+                    expires_at_str,
+                    _,
+                ) = row
+
                 if user_id is not None and b_user_id != user_id:
                     raise BookingRuleError("Cannot borrow another member's booking.")
 
+                borrow_date = borrowed_on or date.today()
+
+                # Check if hold expired before borrowing (FR-B10)
+                exp_date: date | None = None
+                if expires_at_str:
+                    exp_date = date.fromisoformat(expires_at_str.split("T")[0])
+                elif reserved_at_str:
+                    exp_date = calculate_hold_expiry(
+                        date.fromisoformat(reserved_at_str.split("T")[0])
+                    )
+
+                if (
+                    status_str == BookingStatus.RESERVED.value
+                    and exp_date is not None
+                    and borrow_date > exp_date
+                ):
+                    cursor.execute(
+                        "UPDATE bookings SET status = ? WHERE id = ? AND status = ?",
+                        (
+                            BookingStatus.EXPIRED.value,
+                            booking_id,
+                            BookingStatus.RESERVED.value,
+                        ),
+                    )
+                    if cursor.rowcount == 1:
+                        cursor.execute(
+                            "UPDATE books SET available_copies = available_copies + 1 WHERE id = ?",
+                            (b_book_id,),
+                        )
+                        self._conn.commit()
+                    raise BookingRuleError(
+                        f"Reservation for booking {booking_id} expired on {exp_date} "
+                        "and cannot be borrowed."
+                    )
+
                 ensure_can_borrow(status_str)
 
-                borrow_date = date.today()
                 due = calculate_due_date(borrow_date)
                 cursor.execute(
                     "UPDATE bookings SET status = ?, borrowed_at = ?, due_date = ? WHERE id = ?",
@@ -256,29 +403,41 @@ class BookingService:
                 )
                 self._conn.commit()
 
+                res_d = (
+                    date.fromisoformat(reserved_at_str.split("T")[0])
+                    if reserved_at_str
+                    else date.fromisoformat(created_at_str.split("T")[0])
+                )
                 return Booking(
                     id=b_id,
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.BORROWED,
-                    reserved_at=date.fromisoformat(created_at_str),
+                    reserved_at=res_d,
                     borrowed_at=borrow_date,
-                    created_at=date.fromisoformat(created_at_str),
+                    created_at=res_d,
                     due_date=due,
+                    expires_at=exp_date,
                 )
             except Exception:
                 self._conn.rollback()
                 raise
 
-    def return_book(self, booking_id: int, user_id: int | None = None) -> Booking:
-        """Process book return and restore available copy once (BR-07, BR-08)."""
+    def return_book(
+        self,
+        booking_id: int,
+        user_id: int | None = None,
+        returned_on: date | None = None,
+    ) -> Booking:
+        """Process book return and restore available copy once (FR-B3, FR-B5)."""
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute("BEGIN IMMEDIATE")
             try:
                 cursor.execute(
                     """
-                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at,
+                           reserved_at, expires_at, borrowed_at
                     FROM bookings WHERE id = ?
                     """,
                     (booking_id,),
@@ -287,13 +446,25 @@ class BookingService:
                 if not row:
                     raise BookingRuleError(f"Booking {booking_id} not found.")
 
-                b_id, b_user_id, b_book_id, status_str, created_at_str, due_date_str, _ = row
+                (
+                    b_id,
+                    b_user_id,
+                    b_book_id,
+                    status_str,
+                    created_at_str,
+                    due_date_str,
+                    _,
+                    reserved_at_str,
+                    expires_at_str,
+                    borrowed_at_str,
+                ) = row
+
                 if user_id is not None and b_user_id != user_id:
                     raise BookingRuleError("Cannot return another member's booking.")
 
                 ensure_can_return(status_str)
 
-                return_date = date.today()
+                return_date = returned_on or date.today()
                 cursor.execute(
                     "UPDATE bookings SET status = ?, returned_at = ? WHERE id = ?",
                     (BookingStatus.RETURNED.value, return_date.isoformat(), booking_id),
@@ -304,29 +475,54 @@ class BookingService:
                 )
                 self._conn.commit()
 
+                res_d = (
+                    date.fromisoformat(reserved_at_str.split("T")[0])
+                    if reserved_at_str
+                    else date.fromisoformat(created_at_str.split("T")[0])
+                )
                 return Booking(
                     id=b_id,
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.RETURNED,
-                    reserved_at=date.fromisoformat(created_at_str),
-                    created_at=date.fromisoformat(created_at_str),
-                    due_date=date.fromisoformat(due_date_str) if due_date_str else None,
+                    reserved_at=res_d,
+                    created_at=res_d,
+                    due_date=(
+                        date.fromisoformat(due_date_str.split("T")[0])
+                        if due_date_str
+                        else None
+                    ),
                     returned_at=return_date,
+                    borrowed_at=(
+                        date.fromisoformat(borrowed_at_str.split("T")[0])
+                        if borrowed_at_str
+                        else None
+                    ),
+                    expires_at=(
+                        date.fromisoformat(expires_at_str.split("T")[0])
+                        if expires_at_str
+                        else None
+                    ),
                 )
             except Exception:
                 self._conn.rollback()
                 raise
 
-    def cancel_booking(self, booking_id: int, user_id: int | None = None) -> Booking:
-        """Cancel a reserved booking and restore available copy (BR-09)."""
+    def cancel_booking(
+        self,
+        booking_id: int,
+        user_id: int | None = None,
+        cancelled_on: date | None = None,
+    ) -> Booking:
+        """Cancel a reserved booking and restore available copy (FR-B4, FR-B5)."""
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute("BEGIN IMMEDIATE")
             try:
                 cursor.execute(
                     """
-                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at,
+                           reserved_at, expires_at, borrowed_at
                     FROM bookings WHERE id = ?
                     """,
                     (booking_id,),
@@ -335,9 +531,53 @@ class BookingService:
                 if not row:
                     raise BookingRuleError(f"Booking {booking_id} not found.")
 
-                b_id, b_user_id, b_book_id, status_str, created_at_str, _, _ = row
+                (
+                    b_id,
+                    b_user_id,
+                    b_book_id,
+                    status_str,
+                    created_at_str,
+                    _,
+                    _,
+                    reserved_at_str,
+                    expires_at_str,
+                    _,
+                ) = row
+
                 if user_id is not None and b_user_id != user_id:
                     raise BookingRuleError("Cannot cancel another member's booking.")
+
+                current_date = cancelled_on or date.today()
+                exp_date: date | None = None
+                if expires_at_str:
+                    exp_date = date.fromisoformat(expires_at_str.split("T")[0])
+                elif reserved_at_str:
+                    exp_date = calculate_hold_expiry(
+                        date.fromisoformat(reserved_at_str.split("T")[0])
+                    )
+
+                if (
+                    status_str == BookingStatus.RESERVED.value
+                    and exp_date is not None
+                    and current_date > exp_date
+                ):
+                    cursor.execute(
+                        "UPDATE bookings SET status = ? WHERE id = ? AND status = ?",
+                        (
+                            BookingStatus.EXPIRED.value,
+                            booking_id,
+                            BookingStatus.RESERVED.value,
+                        ),
+                    )
+                    if cursor.rowcount == 1:
+                        cursor.execute(
+                            "UPDATE books SET available_copies = available_copies + 1 WHERE id = ?",
+                            (b_book_id,),
+                        )
+                        self._conn.commit()
+                    raise BookingRuleError(
+                        f"Reservation for booking {booking_id} has expired."
+                    )
 
                 ensure_can_cancel(status_str)
 
@@ -351,13 +591,18 @@ class BookingService:
                 )
                 self._conn.commit()
 
+                res_d = (
+                    date.fromisoformat(reserved_at_str.split("T")[0])
+                    if reserved_at_str
+                    else date.fromisoformat(created_at_str.split("T")[0])
+                )
                 return Booking(
                     id=b_id,
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.CANCELLED,
-                    reserved_at=date.fromisoformat(created_at_str),
-                    created_at=date.fromisoformat(created_at_str),
+                    reserved_at=res_d,
+                    created_at=res_d,
                 )
             except Exception:
                 self._conn.rollback()
@@ -371,7 +616,8 @@ class BookingService:
             try:
                 cursor.execute(
                     """
-                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                    SELECT id, user_id, book_id, status, created_at, due_date, returned_at,
+                           reserved_at, expires_at, borrowed_at
                     FROM bookings WHERE id = ?
                     """,
                     (booking_id,),
@@ -380,7 +626,18 @@ class BookingService:
                 if not row:
                     raise BookingRuleError(f"Booking {booking_id} not found.")
 
-                b_id, b_user_id, b_book_id, status_str, created_at_str, _, _ = row
+                (
+                    b_id,
+                    b_user_id,
+                    b_book_id,
+                    status_str,
+                    created_at_str,
+                    _,
+                    _,
+                    reserved_at_str,
+                    expires_at_str,
+                    _,
+                ) = row
                 ensure_can_expire(status_str)
 
                 cursor.execute(
@@ -393,25 +650,59 @@ class BookingService:
                 )
                 self._conn.commit()
 
+                res_d = (
+                    date.fromisoformat(reserved_at_str.split("T")[0])
+                    if reserved_at_str
+                    else date.fromisoformat(created_at_str.split("T")[0])
+                )
+                exp_d = (
+                    date.fromisoformat(expires_at_str.split("T")[0])
+                    if expires_at_str
+                    else None
+                )
                 return Booking(
                     id=b_id,
                     user_id=b_user_id,
                     book_id=b_book_id,
                     status=BookingStatus.EXPIRED,
-                    reserved_at=date.fromisoformat(created_at_str),
-                    created_at=date.fromisoformat(created_at_str),
+                    reserved_at=res_d,
+                    created_at=res_d,
+                    expires_at=exp_d,
                 )
             except Exception:
                 self._conn.rollback()
                 raise
 
-    def get_user_bookings(self, user_id: int) -> list[Booking]:
-        """Fetch all bookings for a user, newest first."""
+    def get_booking(
+        self, booking_id: int, as_of: date | None = None
+    ) -> Booking | None:
+        """Fetch a single booking by ID with dynamic hold expiry on read (FR-B10)."""
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, book_id, status, created_at, due_date, returned_at
+                SELECT id, user_id, book_id, status, created_at, due_date, returned_at,
+                       reserved_at, expires_at, borrowed_at
+                FROM bookings
+                WHERE id = ?
+                """,
+                (booking_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return self._row_to_booking(cursor, row, as_of)
+
+    def get_user_bookings(
+        self, user_id: int, as_of: date | None = None
+    ) -> list[Booking]:
+        """Fetch all bookings for a user, newest first, with dynamic hold expiry (FR-B7, FR-B10)."""
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, user_id, book_id, status, created_at, due_date, returned_at,
+                       reserved_at, expires_at, borrowed_at
                 FROM bookings
                 WHERE user_id = ?
                 ORDER BY id DESC
@@ -419,16 +710,4 @@ class BookingService:
                 (user_id,),
             )
             rows = cursor.fetchall()
-            return [
-                Booking(
-                    id=row[0],
-                    user_id=row[1],
-                    book_id=row[2],
-                    status=BookingStatus(row[3]),
-                    reserved_at=date.fromisoformat(row[4]),
-                    created_at=date.fromisoformat(row[4]),
-                    due_date=date.fromisoformat(row[5]) if row[5] else None,
-                    returned_at=date.fromisoformat(row[6]) if row[6] else None,
-                )
-                for row in rows
-            ]
+            return [self._row_to_booking(cursor, row, as_of) for row in rows]

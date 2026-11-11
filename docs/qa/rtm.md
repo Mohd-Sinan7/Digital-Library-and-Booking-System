@@ -45,7 +45,7 @@ Each requirement is tracked with:
 
 ---
 
-### 2.2 Users and Reading Tracking Module (Member 3 — Nagalapuram Sai Mukesh Reddy)
+## 2.2 Users and Reading Tracking Module (Member 3 — Nagalapuram Sai Mukesh Reddy)
 
 | Requirement ID | Module | Description | Code Location | Test Case IDs & Test Functions | Sprint | Result |
 |---|---|---|---|---|---|---|
@@ -66,31 +66,31 @@ Each requirement is tracked with:
 
 ---
 
-### 2.3 Booking and Borrowing Module (Member 4 — Marreddy Rushieswar Reddy, QA Lead)
+## 2.3 Booking and Borrowing Module (Member 4 — Marreddy Rushieswar Reddy, QA Lead)
 
 | Requirement ID | Module | Description | Code Location | Test Case IDs & Test Functions | Sprint | Result |
 |---|---|---|---|---|---|---|
 | **FR-B1** | Booking & Borrowing | Reserve book with available copy; available copies drop by 1; removed book rejected | `src/bookings/service.py:reserve_book`, `src/bookings/rules.py:ensure_can_reserve` | TC-B01, TC-B14, `test_reservation_allowed_with_copy_and_capacity`, `test_reservation_rejected_when_book_is_removed` | Sprint 1 | **Passed** |
-| **FR-B2** | Booking & Borrowing | Borrow reserved book; sets due date 14 calendar days ahead; copy count unchanged | `src/bookings/service.py:borrow_book`, `src/bookings/rules.py:calculate_due_date` | TC-B06, TC-B20, `test_due_date_is_fourteen_days_after_borrowing`, `test_only_reserved_booking_can_be_borrowed` | Sprint 1 & 2 | **Passed** |
+| **FR-B2** | Booking & Borrowing | Borrow reserved book; sets due date 14 calendar days ahead; copy count unchanged | `src/bookings/service.py:borrow_book`, `src/bookings/rules.py:calculate_due_date` | TC-B06, TC-B20, `test_due_date_is_fourteen_days_after_borrowing`, `test_tc_b20_fr_b2_due_date_calculation` | Sprint 1 & 2 | **Passed** |
 | **FR-B3** | Booking & Borrowing | Return borrowed book; makes copy available again (+1); non-borrowed loans rejected | `src/bookings/service.py:return_book`, `src/bookings/rules.py:ensure_can_return` | TC-B03, `test_only_borrowed_booking_can_be_returned`, `test_api_borrow_return_cancel_and_get_me` | Sprint 1 | **Passed** |
 | **FR-B4** | Booking & Borrowing | Cancel unborrowed reservation; restores copy count (+1); borrowed cannot be cancelled | `src/bookings/service.py:cancel_booking`, `src/bookings/rules.py:ensure_can_cancel` | TC-B07, `test_only_reserved_booking_can_be_cancelled`, `test_dlbs_50_cancel_restores_allowance_via_api` | Sprint 1 | **Passed** |
 | **FR-B5** | Booking & Borrowing | Available-copy count updates automatically on reserve, cancel, and return; borrow leaves count unchanged | `src/bookings/service.py`, `src/catalog/service.py:change_available_copies` | TC-B08, `test_booking_inventory_invariants_across_lifecycle` | Sprint 1 | **Passed** |
-| **FR-B6** | Booking & Borrowing | Flag booking as overdue when current date exceeds due date | `src/bookings/models.py:Booking.is_overdue` | TC-B21, `test_booking_model_active_and_overdue_flags`, `test_overdue_flag_computation` | Sprint 2 | **Passed** |
-| **FR-B7** | Booking & Borrowing | View active and past bookings (`GET /api/bookings/me`) | `src/bookings/service.py:get_user_bookings`, `src/bookings/routes.py` | TC-B16, TC-B22, `test_api_borrow_return_cancel_and_get_me`, `test_get_user_bookings_newest_first` | Sprint 2 | **Passed** |
+| **FR-B6** | Booking & Borrowing | Flag booking as overdue when current date exceeds due date (`overdue = true`) | `src/bookings/models.py:Booking.is_overdue`, `Booking.overdue`, `src/bookings/routes.py` | TC-B21, `test_tc_b21_fr_b6_overdue_flag_true_when_past_due`, `test_fr_b6_api_overdue_flag_serialization`, `test_booking_model_active_and_overdue_flags` | Sprint 2 | **Passed** |
+| **FR-B7** | Booking & Borrowing | View active and past bookings (`GET /api/bookings/me`) listing only the member's bookings with status, dates and overdue flag | `src/bookings/service.py:get_user_bookings`, `src/bookings/routes.py:get_my_bookings_endpoint` | TC-B16, TC-B22, `test_tc_b22_fr_b7_get_my_bookings_lists_only_member_bookings`, `test_fr_b7_get_my_bookings_contains_status_dates_and_overdue_flag`, `test_fr_b7_get_my_bookings_sorted_newest_first` | Sprint 2 | **Passed** |
 | **FR-B8** (DLBS-50) | Booking & Borrowing | Member shall not hold more than 5 active bookings at once; 6th rejected with 409 | `src/bookings/rules.py:ensure_can_reserve`, `src/bookings/routes.py` | TC-B04, TC-B19, `test_sixth_active_booking_is_rejected`, `test_dlbs_50_sixth_active_with_mixed_borrowed_and_reserved_rejected` | Sprint 1 & 2 | **Passed** |
 | **FR-B9** | Booking & Borrowing | Unavailable copy reservation returns HTTP 409 Conflict (no double booking) | `src/bookings/service.py:reserve_book`, `src/bookings/rules.py` | TC-B02, `test_reservation_rejected_when_no_copy_available` | Sprint 1 | **Passed** |
-| **FR-B10** | Booking & Borrowing | Reservation hold expires after 2 days; copy automatically restored to available stock | `src/bookings/rules.py:calculate_hold_expiry`, `src/bookings/service.py:expire_booking` | TC-B05, TC-B23, `test_dlbs_45_hold_expiry_calculation`, `test_dlbs_45_service_expire_booking_restores_copy` | Sprint 2 | **Passed** |
+| **FR-B10** | Booking & Borrowing | Reservation hold expires after 2 days; dynamic hold expiry on read restores copy to available stock | `src/bookings/rules.py:calculate_hold_expiry`, `src/bookings/service.py:_row_to_booking`, `get_booking`, `get_user_bookings` | TC-B05, TC-B23, `test_tc_b23_fr_b10_reservation_read_past_two_days_shows_expired_and_restores_copy`, `test_fr_b10_get_user_bookings_dynamically_expires_holds_on_read`, `test_fr_b10_borrow_attempt_after_hold_expiry_fails` | Sprint 2 | **Passed** |
 | **DLBS-45 Table** | Booking & Borrowing | Bookings table schema with lifecycle fields (`id`, `user_id`, `book_id`, `status`, `reserved_at`, `expires_at`, `borrowed_at`, `due_date`, `returned_at`) | `src/bookings/models.py:BookingRow`, `BookingTable` | `test_dlbs_45_bookings_table_schema` | Sprint 1 & 2 | **Passed** |
 | **DLBS-45 States** | Booking & Borrowing | Strict transitions: reserved→borrowed/cancelled/expired, borrowed→returned; invalid transitions rejected with 409 | `src/bookings/rules.py:validate_status_transition` | `test_dlbs_45_allowed_state_transitions`, `test_dlbs_45_rejected_state_transitions` | Sprint 1 & 2 | **Passed** |
 | **DLBS-47 Seed** | Booking & QA Lead | Seed script for books loading CSV through catalog repository with shared `book_id` | `scripts/seed.py:seed_books` | TC-B18, `test_seed_books_sample`, `test_seed_shared_id_integrity_with_booking_and_reading` | Sprint 1 | **Passed** |
 | **DLBS-56 QA** | Booking & QA Lead | Traceability matrix and test summary report complete, verified, documented, and approved | `docs/qa/rtm.md`, `docs/qa/test-summary.md` | TC-B24, `tests/test_qa_deliverables.py` | Sprint 2 | **Passed** |
 | **NFR-B1** | Booking & Borrowing | Concurrency safety: atomic reservation transaction (`BEGIN IMMEDIATE`), thread lock (`RLock`), zero race conditions / double bookings | `src/bookings/service.py:reserve_book` | TC-B09, TC-B25, `test_concurrent_reservations_last_copy_race_condition` | Sprint 1 & 2 | **Passed** |
 | **NFR-B2** | Booking & Borrowing | Booking actions complete in under 1 second (< 100ms average measured) | `src/bookings/service.py`, `src/bookings/routes.py` | `test_booking_service_delegation`, `test_booking_latency` | Sprint 1 & 2 | **Passed** |
-| **NFR-B3** | Booking & Borrowing | Module unit-test coverage $\ge 70\%$ (achieved 99% coverage on `src/bookings`) | `tests/test_booking_rules.py` | `pytest --cov=src/bookings` (99% verified) | Sprint 1 & 2 | **Passed** |
+| **NFR-B3** | Booking & Borrowing | Module unit-test coverage $\ge 70\%$ (achieved 97% coverage on `src/bookings`) | `tests/test_booking_rules.py`, `tests/test_dlbs_51_due_dates_overdue_expiry.py` | `pytest --cov=src/bookings` (97% verified) | Sprint 1 & 2 | **Passed** |
 
 ---
 
-### 2.4 Recommendation Engine Module (Member 1 — Mohammed Sinan M T)
+## 2.4 Recommendation Engine Module (Member 1 — Mohammed Sinan M T)
 
 | Requirement ID | Module | Description | Code Location | Test Case IDs & Test Functions | Sprint | Result |
 |---|---|---|---|---|---|---|
@@ -107,7 +107,7 @@ Each requirement is tracked with:
 
 ---
 
-### 2.5 Cross-Cutting, CI/CD, and DevOps (Member 3 & Whole Team)
+## 2.5 Cross-Cutting, CI/CD, and DevOps (Member 3 & Whole Team)
 
 | Requirement ID | Module | Description | Code Location | Test Case IDs & Test Functions | Sprint | Result |
 |---|---|---|---|---|---|---|
@@ -122,8 +122,8 @@ Each requirement is tracked with:
 
 - **Total Requirements Specified:** 42 requirements across 4 functional modules and cross-cutting DevOps.
 - **Traceability Coverage:** **100% (42 / 42 requirements traced)**.
-- **Automated Regression Tests Executed:** **362 tests passing (0 failures, 0 skipped, 0 regressions)**.
+
 - **Defects / Gaps Identified:** **0 open blockers, 0 open critical/high defects**.
-- **System Code Coverage:** **97% overall coverage across `src/`**, with **99% on `src/bookings`**, comfortably surpassing the $\ge 70\%$ requirement (NFR-B3, DLBS-41).
+- **System Code Coverage:** **97% overall coverage across `src/`**, with **97% on `src/bookings`**, comfortably surpassing the $\ge 70\%$ requirement (NFR-B3, DLBS-41).
 - **QA Lead Sign-Off:** Marreddy Rushieswar Reddy (Member 4, QA Lead)  
 - **Release Status:** **VERIFIED, APPROVED, AND READY FOR FINAL PRESENTATION**

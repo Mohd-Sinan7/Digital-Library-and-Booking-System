@@ -1,7 +1,7 @@
-"""Domain models and database table for book reservations and loans (DLBS-45)."""
+"""Domain models and database table for book reservations and loans (DLBS-45, DLBS-51)."""
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String
@@ -12,7 +12,7 @@ from src.db import Base
 
 def utc_now() -> datetime:
     """Return the current time in UTC."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class BookingStatus(StrEnum):
@@ -24,7 +24,7 @@ class BookingStatus(StrEnum):
 
 
 class BookingRow(Base):
-    """Database table for bookings (DLBS-45).
+    """Database table for bookings (DLBS-45, DLBS-51).
 
     Columns:
     - id: Primary key
@@ -57,6 +57,23 @@ class BookingRow(Base):
     borrowed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     returned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in {BookingStatus.RESERVED.value, BookingStatus.BORROWED.value}
+
+    @property
+    def is_overdue(self) -> bool:
+        return (
+            self.status == BookingStatus.BORROWED.value
+            and self.due_date is not None
+            and date.today() > self.due_date
+        )
+
+    @property
+    def overdue(self) -> bool:
+        """Alias for is_overdue (FR-B6 / DLBS-51 acceptance criteria)."""
+        return self.is_overdue
 
 
 # Alias for readability across modules
@@ -99,4 +116,17 @@ class Booking:
             self.status == BookingStatus.BORROWED
             and self.due_date is not None
             and date.today() > self.due_date
+        )
+
+    @property
+    def overdue(self) -> bool:
+        """Alias for is_overdue (FR-B6 / DLBS-51 acceptance criteria)."""
+        return self.is_overdue
+
+    def is_overdue_as_of(self, as_of: date) -> bool:
+        """Evaluate overdue status relative to a specific reference date (FR-B6)."""
+        return (
+            self.status == BookingStatus.BORROWED
+            and self.due_date is not None
+            and as_of > self.due_date
         )

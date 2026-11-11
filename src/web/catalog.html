@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book Catalog · Digital Library</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/js/app.js"></script>
+</head>
+<body>
+<main>
+  <h1>Book Catalog</h1>
+  <p class="muted">Search through 10,000+ academic textbooks, fiction, and reference literature.</p>
+
+  <form id="search-form" class="row" role="search" novalidate>
+    <label>Search
+      <input id="q" type="search" placeholder="Title, author, or ISBN" autocomplete="off">
+    </label>
+    <label>Genre
+      <select id="genre">
+        <option value="">All Genres</option>
+      </select>
+    </label>
+    <label class="checkbox-row" style="margin-bottom: 8px;">
+      <input id="available" type="checkbox"> Available copies only
+    </label>
+    <button class="primary" type="submit">Filter</button>
+    <button class="secondary" type="button" id="reset-btn">Reset</button>
+  </form>
+
+  <div id="status-msg" role="status"></div>
+
+  <div id="results-container">
+    <div id="catalog-count" class="muted" style="margin-bottom: 12px;"></div>
+    <ul id="book-grid" class="grid" aria-label="Catalog Books"></ul>
+  </div>
+
+  <nav id="pagination" class="pager" aria-label="Catalog Pagination" style="display: none;">
+    <button id="prev-btn" class="secondary small" type="button">Previous</button>
+    <span id="page-info" class="muted"></span>
+    <button id="next-btn" class="secondary small" type="button">Next</button>
+  </nav>
+</main>
+
+<script>
+  // DLBS-23: Catalog browsing, multi-field search, genre filtering, and pagination.
+  let currentPage = 1;
+  const pageSize = 20;
+
+  const form = document.getElementById("search-form");
+  const qInput = document.getElementById("q");
+  const genreSelect = document.getElementById("genre");
+  const availCheck = document.getElementById("available");
+  const resetBtn = document.getElementById("reset-btn");
+  const statusMsg = document.getElementById("status-msg");
+  const bookGrid = document.getElementById("book-grid");
+  const catalogCount = document.getElementById("catalog-count");
+  const pagination = document.getElementById("pagination");
+  const prevBtn = document.getElementById("prev-btn");
+  const nextBtn = document.getElementById("next-btn");
+  const pageInfo = document.getElementById("page-info");
+
+  // Read URL query params on initial load
+  const urlParams = new URLSearchParams(location.search);
+  if (urlParams.get("q")) qInput.value = urlParams.get("q");
+  if (urlParams.get("page")) currentPage = Math.max(1, parseInt(urlParams.get("page"), 10) || 1);
+  if (urlParams.get("available") === "true") availCheck.checked = true;
+
+  async function loadGenres() {
+    try {
+      const data = await DL.api("/api/books/genres");
+      const currentGenre = urlParams.get("genre") || "";
+      genreSelect.innerHTML = `<option value="">All Genres</option>` +
+        data.items.map((g) => `<option value="${DL.esc(g)}"${g === currentGenre ? " selected" : ""}>${DL.esc(g)}</option>`).join("");
+    } catch {
+      // Genres failed to load; keep default option
+    }
+  }
+
+  async function loadBooks() {
+    statusMsg.className = "alert info";
+    statusMsg.textContent = "Loading catalog books...";
+    bookGrid.innerHTML = "";
+    pagination.style.display = "none";
+    catalogCount.textContent = "";
+
+    const params = new URLSearchParams();
+    params.set("page", currentPage);
+    params.set("page_size", pageSize);
+    if (qInput.value.trim()) params.set("q", qInput.value.trim());
+    if (genreSelect.value) params.set("genre", genreSelect.value);
+    if (availCheck.checked) params.set("available", "true");
+
+    try {
+      const res = await DL.api("/api/books?" + params.toString());
+      statusMsg.textContent = "";
+      statusMsg.className = "";
+
+      if (!res.items || res.items.length === 0) {
+        statusMsg.className = "alert info";
+        statusMsg.textContent = "No books match your criteria. Try adjusting your search or filters.";
+        return;
+      }
+
+      catalogCount.textContent = `Showing ${res.items.length} of ${res.total.toLocaleString()} books (Page ${res.page} of ${res.total_pages})`;
+      bookGrid.innerHTML = res.items.map((b) => DL.bookCard(b)).join("");
+
+      // Pagination setup
+      if (res.total_pages > 1) {
+        pagination.style.display = "flex";
+        pageInfo.textContent = `Page ${res.page} of ${res.total_pages}`;
+        prevBtn.disabled = res.page <= 1;
+        nextBtn.disabled = res.page >= res.total_pages;
+      }
+    } catch (err) {
+      statusMsg.className = "alert error";
+      statusMsg.textContent = "Failed to load books: " + err.message;
+    }
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    currentPage = 1;
+    loadBooks();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    qInput.value = "";
+    genreSelect.value = "";
+    availCheck.checked = false;
+    currentPage = 1;
+    loadBooks();
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadBooks();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  });
+
+  nextBtn.addEventListener("click", () => {
+    currentPage++;
+    loadBooks();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  loadGenres().then(loadBooks);
+</script>
+</body>
+</html>

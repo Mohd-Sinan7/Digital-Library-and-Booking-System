@@ -106,6 +106,6 @@ branch `main`.
   takes about a minute to wake it. Open the app a few minutes before a demo.
 - Render deletes free databases 30 days after they are created, which is after the
   presentations.
-- Bookings are kept in the app's memory for now (`src/bookings/service.py`), so they are
-  lost whenever the app restarts or sleeps. Users, books and reading records are in
-  PostgreSQL.
+- Users, books, reading records and bookings are all kept in PostgreSQL, so they stay
+  when the app restarts or sleeps. Bookings moved there from the app's memory in
+  DLBS-55 (`src/bookings/session_service.py`).

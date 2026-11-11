@@ -34,7 +34,15 @@ _service_instance: BookingService | None = None
 def get_booking_service() -> BookingService:
     global _service_instance
     if _service_instance is None:
-        _service_instance = BookingService()
+        from src.db import DATABASE_URL
+
+        db_path = ":memory:"
+        if DATABASE_URL.startswith("sqlite:///"):
+            raw_path = DATABASE_URL.replace("sqlite:///", "")
+            if raw_path.startswith("./"):
+                raw_path = raw_path[2:]
+            db_path = raw_path
+        _service_instance = BookingService(db_path=db_path)
     return _service_instance
 
 

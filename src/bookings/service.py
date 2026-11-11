@@ -81,6 +81,19 @@ class BookingService:
                 )
                 """
             )
+            # Ensure compatibility with shared catalog and booking tables in SQLite
+            cursor.execute("PRAGMA table_info(books)")
+            cols = [col[1] for col in cursor.fetchall()]
+            if cols and "is_removed" not in cols:
+                cursor.execute("ALTER TABLE books ADD COLUMN is_removed INTEGER NOT NULL DEFAULT 0")
+                if "is_deleted" in cols:
+                    cursor.execute("UPDATE books SET is_removed = is_deleted")
+
+            cursor.execute("PRAGMA table_info(bookings)")
+            bcols = [col[1] for col in cursor.fetchall()]
+            if bcols and "created_at" not in bcols:
+                cursor.execute("ALTER TABLE bookings ADD COLUMN created_at TEXT")
+
             self._conn.commit()
 
     def seed_book(

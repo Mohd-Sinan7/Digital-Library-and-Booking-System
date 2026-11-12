@@ -21,6 +21,7 @@ class HybridRecommender(Recommender):
       to popularity recommendations.
     - Exclusions (FR-R4): finished books and soft-deleted books are never recommended.
     - Explanations (FR-R5): human-readable explanations based on genre interest and popularity.
+    - Model rebuilding (FR-R6): fit() rebuilds underlying models.
     """
 
     def __init__(self, alpha: float = 0.7, db: Session | None = None):
@@ -30,6 +31,11 @@ class HybridRecommender(Recommender):
         self.db = db
         self.content_recommender = ContentBasedRecommender(db=db)
         self.popularity_recommender = PopularityRecommender(db=db)
+
+    def fit(self, db: Session | None = None) -> None:
+        """Precompute and cache model representations (FR-R6)."""
+        active_db = db if db is not None else self.db
+        self.content_recommender.fit(db=active_db)
 
     def recommend(
         self,

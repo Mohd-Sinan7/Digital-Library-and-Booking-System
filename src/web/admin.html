@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Dashboard · Digital Library</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/js/app.js"></script>
+</head>
+<body>
+<main>
+  <h1>Admin Dashboard</h1>
+  <p class="muted">Manage book catalog inventory, add new titles, edit copies, and trigger recommendation cache rebuilds.</p>
+
+  <div id="admin-alert" role="status"></div>
+
+  <!-- ML Model Management Panel -->
+  <section class="panel" style="background: #f0f7ff; border-color: #54aeff;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h2 style="font-size: 1.2rem; margin: 0 0 4px;">Recommendation Engine & Caching</h2>
+        <p class="muted" style="margin: 0;">Rebuild TF-IDF vocabulary, invalidate in-memory caches, and retrain baseline popularity models.</p>
+      </div>
+      <button id="refresh-models-btn" class="secondary" type="button">Retrain & Refresh Cache</button>
+    </div>
+  </section>
+
+  <!-- Add / Edit Book Form -->
+  <section class="panel">
+    <h2 id="form-heading" style="font-size: 1.3rem;">Add New Book to Catalog</h2>
+    <form id="book-form" class="stack" novalidate>
+      <input type="hidden" id="book-edit-id">
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        <label>Title *
+          <input id="title" maxlength="255" required placeholder="e.g. Clean Code">
+        </label>
+        <label>Author(s) *
+          <input id="author" maxlength="1000" required placeholder="e.g. Robert C. Martin">
+        </label>
+        <label>ISBN (10 or 13 digits) *
+          <input id="isbn" required placeholder="e.g. 9780132350884">
+        </label>
+        <label>Genre *
+          <input id="genre" maxlength="50" required placeholder="e.g. Technology">
+        </label>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+        <label>Total Copies *
+          <input id="total_copies" type="number" min="0" value="3" required>
+        </label>
+        <label>Page Count *
+          <input id="page_count" type="number" min="1" value="300" required>
+        </label>
+        <label>Publication Year
+          <input id="year" type="number" min="1000" max="2026" placeholder="e.g. 2008">
+        </label>
+        <label>Cover Image URL
+          <input id="cover_url" type="url" placeholder="https://...">
+        </label>
+      </div>
+
+      <label>Description / Synopsis
+        <textarea id="description" rows="3" maxlength="2000" placeholder="Brief summary of the book..."></textarea>
+      </label>
+
+      <div class="row" style="margin-top: 8px;">
+        <button id="submit-btn" class="primary" type="submit">Add Book</button>
+        <button id="cancel-btn" class="secondary" type="button" style="display: none;">Cancel Edit</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Catalog Management Table -->
+  <section class="panel">
+    <div class="section-header">
+      <h2 style="font-size: 1.3rem; margin: 0;">Inventory Management</h2>
+      <form id="admin-search-form" class="row" style="margin: 0;">
+        <input id="admin-q" type="search" placeholder="Filter title or author...">
+        <button class="secondary small" type="submit">Search</button>
+      </form>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table aria-label="Book Inventory Table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Genre</th>
+            <th>ISBN</th>
+            <th>Copies</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inventory-tbody">
+          <tr><td colspan="7" class="muted" style="text-align: center;">Loading inventory...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager" id="admin-pager" style="display: none;">
+      <button id="admin-prev" class="secondary small">Previous</button>
+      <span id="admin-page-info" class="muted"></span>
+      <button id="admin-next" class="secondary small">Next</button>
+    </div>
+  </section>
+</main>
+
+<script>
+  // DLBS-21: Admin inventory CRUD operations, form validation, and recommendation cache refresh.
+  const user = DL.requireLogin();
+  if (user && user.role !== "admin") {
+    document.querySelector("main").innerHTML = `
+      <div class="alert error" style="margin-top: 32px;">
+        <h2>Access Denied</h2>
+        <p>You must be an administrator to view this page. Regular members cannot modify catalog records.</p>
+        <p><a href="/" class="primary" style="display: inline-block; padding: 6px 12px; text-decoration: none;">Return to Home</a></p>
+      </div>
+    `;
+    throw new Error("Admin access required");
+  }
+
+  const alertBox = document.getElementById("admin-alert");
+  const refreshBtn = document.getElementById("refresh-models-btn");
+  const bookForm = document.getElementById("book-form");
+  const formHeading = document.getElementById("form-heading");
+  const submitBtn = document.getElementById("submit-btn");
+  const cancelBtn = document.getElementById("cancel-btn");
+  const editIdInput = document.getElementById("book-edit-id");
+
+  const titleInput = document.getElementById("title");
+  const authorInput = document.getElementById("author");
+  const isbnInput = document.getElementById("isbn");
+  const genreInput = document.getElementById("genre");
+  const copiesInput = document.getElementById("total_copies");
+  const pagesInput = document.getElementById("page_count");
+  const yearInput = document.getElementById("year");
+  const coverInput = document.getElementById("cover_url");
+  const descInput = document.getElementById("description");
+
+  const inventoryTbody = document.getElementById("inventory-tbody");
+  const searchForm = document.getElementById("admin-search-form");
+  const searchInput = document.getElementById("admin-q");
+  const pager = document.getElementById("admin-pager");
+  const prevBtn = document.getElementById("admin-prev");
+  const nextBtn = document.getElementById("admin-next");
+  const pageInfo = document.getElementById("admin-page-info");
+
+  let adminPage = 1;
+  const adminPageSize = 10;
+
+  function showAlert(msg, type = "info") {
+    alertBox.className = `alert ${type}`;
+    alertBox.textContent = msg;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Refresh Models
+  refreshBtn.addEventListener("click", async () => {
+    refreshBtn.disabled = true;
+    showAlert("Rebuilding recommendation models and cache...", "info");
+    try {
+      const res = await DL.api("/api/recommendations/refresh", { method: "POST" });
+      showAlert(res.message || "Recommendation models refreshed successfully!", "success");
+    } catch (err) {
+      showAlert("Failed to refresh models: " + err.message, "error");
+    } finally {
+      refreshBtn.disabled = false;
+    }
+  });
+
+  // Load Inventory Table
+  async function loadInventory() {
+    inventoryTbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align: center;">Loading books...</td></tr>`;
+    pager.style.display = "none";
+
+    const params = new URLSearchParams();
+    params.set("page", adminPage);
+    params.set("page_size", adminPageSize);
+    if (searchInput.value.trim()) params.set("q", searchInput.value.trim());
+
+    try {
+      const res = await DL.api(`/api/books?` + params.toString());
+      if (!res.items || res.items.length === 0) {
+        inventoryTbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align: center;">No books found matching search.</td></tr>`;
+        return;
+      }
+
+      inventoryTbody.innerHTML = res.items.map((b) => `
+        <tr>
+          <td>${b.id}</td>
+          <td><strong><a href="/book.html?id=${b.id}">${DL.esc(b.title)}</a></strong></td>
+          <td>${DL.esc(b.author)}</td>
+          <td><span class="badge info">${DL.esc(b.genre || "")}</span></td>
+          <td><code>${DL.esc(b.isbn)}</code></td>
+          <td>${b.available_copies} / ${b.total_copies}</td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              <button class="secondary small btn-edit" data-id="${b.id}">Edit</button>
+              <button class="danger small btn-del" data-id="${b.id}" data-title="${DL.esc(b.title)}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+
+      if (res.total_pages > 1) {
+        pager.style.display = "flex";
+        pageInfo.textContent = `Page ${res.page} of ${res.total_pages} (${res.total.toLocaleString()} books)`;
+        prevBtn.disabled = res.page <= 1;
+        nextBtn.disabled = res.page >= res.total_pages;
+      }
+
+      attachTableListeners();
+    } catch (err) {
+      inventoryTbody.innerHTML = `<tr><td colspan="7" class="error" style="text-align: center;">Error loading books: ${DL.esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function attachTableListeners() {
+    // Edit buttons
+    document.querySelectorAll(".btn-edit").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        try {
+          const book = await DL.api(`/api/books/${id}`);
+          editIdInput.value = book.id;
+          titleInput.value = book.title;
+          authorInput.value = book.author;
+          isbnInput.value = book.isbn;
+          genreInput.value = book.genre;
+          copiesInput.value = book.total_copies;
+          pagesInput.value = book.page_count;
+          yearInput.value = book.year || "";
+          coverInput.value = book.cover_url || "";
+          descInput.value = book.description || "";
+
+          formHeading.textContent = `Edit Book #${book.id}: ${book.title}`;
+          submitBtn.textContent = "Save Changes";
+          cancelBtn.style.display = "inline-block";
+          bookForm.scrollIntoView({ behavior: "smooth" });
+        } catch (err) {
+          showAlert("Failed to fetch book for editing: " + err.message, "error");
+        }
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll(".btn-del").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const title = btn.dataset.title;
+        if (!confirm(`Are you sure you want to soft-delete "${title}" (ID: ${id})?`)) return;
+        try {
+          await DL.api(`/api/books/${id}`, { method: "DELETE" });
+          showAlert(`Book "${title}" soft-deleted successfully.`, "success");
+          loadInventory();
+        } catch (err) {
+          showAlert("Delete failed: " + err.message, "error");
+        }
+      });
+    });
+  }
+
+  function resetForm() {
+    bookForm.reset();
+    editIdInput.value = "";
+    formHeading.textContent = "Add New Book to Catalog";
+    submitBtn.textContent = "Add Book";
+    cancelBtn.style.display = "none";
+  }
+
+  cancelBtn.addEventListener("click", resetForm);
+
+  bookForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+
+    const isEdit = Boolean(editIdInput.value);
+    const body = {
+      title: titleInput.value.trim(),
+      author: authorInput.value.trim(),
+      isbn: isbnInput.value.trim().replace(/[-\s]/g, ""),
+      genre: genreInput.value.trim(),
+      total_copies: parseInt(copiesInput.value, 10),
+      page_count: parseInt(pagesInput.value, 10),
+      description: descInput.value.trim()
+    };
+
+    if (yearInput.value) body.year = parseInt(yearInput.value, 10);
+    if (coverInput.value.trim()) body.cover_url = coverInput.value.trim();
+
+    try {
+      if (isEdit) {
+        await DL.api(`/api/books/${editIdInput.value}`, { method: "PUT", body });
+        showAlert(`Book "${body.title}" updated successfully!`, "success");
+      } else {
+        await DL.api("/api/books", { method: "POST", body });
+        showAlert(`New book "${body.title}" added to catalog!`, "success");
+      }
+      resetForm();
+      loadInventory();
+    } catch (err) {
+      showAlert(err.message || "Failed to save book.", "error");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  searchForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    adminPage = 1;
+    loadInventory();
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (adminPage > 1) { adminPage--; loadInventory(); }
+  });
+  nextBtn.addEventListener("click", () => {
+    adminPage++; loadInventory();
+  });
+
+  loadInventory();
+</script>
+</body>
+</html>

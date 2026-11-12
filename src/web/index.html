@@ -3,14 +3,115 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Home · Digital Library</title>
+  <title>Home · Digital Library and Booking System</title>
   <link rel="stylesheet" href="/css/app.css">
   <script src="/js/app.js"></script>
 </head>
 <body>
 <main>
-  <h1>Digital Library</h1>
-  <p>Browse the <a href="/catalog.html">catalog</a>.</p>
+  <!-- Hero Section with Search -->
+  <section class="hero">
+    <h1>Welcome to the Digital Library</h1>
+    <p>Discover textbooks, reserve physical copies, track your reading progress, and receive AI-tailored recommendations.</p>
+    <form class="hero-search" action="/catalog.html" method="GET">
+      <input type="search" name="q" placeholder="Search by book title, author, or ISBN..." aria-label="Catalog Search">
+      <button class="primary" type="submit">Search</button>
+    </form>
+  </section>
+
+  <!-- Quick Feature Links -->
+  <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px;">
+    <div class="card" style="padding: 16px;">
+      <h3 style="margin-bottom: 6px;"><a href="/catalog.html">📖 Complete Catalog</a></h3>
+      <p class="muted">Search through 10,000+ academic textbooks, technical literature, and fiction titles with live stock availability.</p>
+    </div>
+    <div class="card" style="padding: 16px;">
+      <h3 style="margin-bottom: 6px;"><a href="/bookings.html">🔖 My Bookings</a></h3>
+      <p class="muted">Manage your 2-day reservation holds, 14-day loan due dates, and return books without late penalties.</p>
+    </div>
+    <div class="card" style="padding: 16px;">
+      <h3 style="margin-bottom: 6px;"><a href="/reading.html">📊 Reading Habits</a></h3>
+      <p class="muted">Record reading milestones (page numbers or percentages) and view your aggregated reading statistics.</p>
+    </div>
+  </section>
+
+  <!-- Recommended For You Section -->
+  <section class="panel">
+    <div class="section-header">
+      <div>
+        <h2 style="font-size: 1.4rem; margin: 0 0 4px;">Recommended for You</h2>
+        <p class="muted" style="margin: 0;" id="rec-subtitle">AI-powered recommendations based on your reading history and library favorites.</p>
+      </div>
+      <div id="rec-actions">
+        <!-- Refresh button or Login button -->
+      </div>
+    </div>
+
+    <div id="rec-alert" role="status"></div>
+    <ul id="recommendations-grid" class="grid" aria-label="Book Recommendations"></ul>
+  </section>
 </main>
+
+<script>
+  // DLBS-23, DLBS-10, DLBS-12: Home page hero, search routing, and personalized recommendations.
+  const recGrid = document.getElementById("recommendations-grid");
+  const recAlert = document.getElementById("rec-alert");
+  const recActions = document.getElementById("rec-actions");
+  const recSubtitle = document.getElementById("rec-subtitle");
+
+  async function loadRecommendations() {
+    const user = DL.user();
+
+    if (!user) {
+      recSubtitle.textContent = "Log in to receive personalized recommendations powered by our machine learning hybrid engine.";
+      recActions.innerHTML = `<a href="/login.html?next=/" class="primary" style="display: inline-block; padding: 6px 14px; text-decoration: none;">Log in to view</a>`;
+      recGrid.innerHTML = "";
+      recAlert.className = "alert info";
+      recAlert.innerHTML = `
+        <strong>New reader?</strong> <a href="/login.html">Log in</a> or <a href="/register.html">create an account</a>
+        to see book recommendations tailored to your reading history! Or explore the <a href="/catalog.html">complete catalog</a> right away.
+      `;
+      return;
+    }
+
+    // Logged in user: setup actions
+    recActions.innerHTML = `
+      <button id="refresh-rec-btn" class="secondary small" type="button" title="Fetch fresh recommendations">Refresh</button>
+    `;
+    const refreshBtn = document.getElementById("refresh-rec-btn");
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", () => {
+        loadRecommendations();
+      });
+    }
+
+    recAlert.className = "alert info";
+    recAlert.textContent = "Loading recommendations...";
+    recGrid.innerHTML = "";
+
+    try {
+      const data = await DL.api("/api/recommendations/me?limit=8");
+      recAlert.textContent = "";
+      recAlert.className = "";
+
+      if (!data.items || data.items.length === 0) {
+        recAlert.className = "alert info";
+        recAlert.innerHTML = `No recommendations generated yet. Start by browsing the <a href="/catalog.html">catalog</a> and reserving your first book!`;
+        return;
+      }
+
+      recGrid.innerHTML = data.items.map((item) => {
+        // DL.bookCard handles both catalog items and recommendation items with reasons
+        return DL.bookCard(item, { reason: item.reason });
+      }).join("");
+
+    } catch (err) {
+      recAlert.className = "alert error";
+      recAlert.textContent = "Unable to load recommendations: " + err.message;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", loadRecommendations);
+</script>
 </body>
 </html>

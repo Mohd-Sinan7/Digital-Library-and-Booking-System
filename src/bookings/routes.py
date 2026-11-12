@@ -1,4 +1,4 @@
-"""FastAPI route handlers for booking and borrowing (DLBS-45, DLBS-51).
+"""FastAPI route handlers for booking and borrowing (DLBS-45, DLBS-51, DLBS-55).
 
 Endpoints specified in docs/api-contract.md:
 - POST /api/bookings
@@ -25,28 +25,23 @@ from .rules import (
     NoCopiesAvailableError,
 )
 from .service import BookingService
+from .session_service import SessionBookingService
+
+BookingServiceBackend = BookingService | SessionBookingService
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 
-_service_instance: BookingService | None = None
+_service_instance: BookingServiceBackend | None = None
 
 
-def get_booking_service() -> BookingService:
+def get_booking_service() -> BookingServiceBackend:
     global _service_instance
     if _service_instance is None:
-        from src.db import DATABASE_URL
-
-        db_path = ":memory:"
-        if DATABASE_URL.startswith("sqlite:///"):
-            raw_path = DATABASE_URL.replace("sqlite:///", "")
-            if raw_path.startswith("./"):
-                raw_path = raw_path[2:]
-            db_path = raw_path
-        _service_instance = BookingService(db_path=db_path)
+        _service_instance = SessionBookingService()
     return _service_instance
 
 
-def set_booking_service(service: BookingService | None) -> None:
+def set_booking_service(service: BookingServiceBackend | None) -> None:
     global _service_instance
     _service_instance = service
 
@@ -93,7 +88,7 @@ def _serialize_booking(b: Booking) -> dict[str, Any]:
 def reserve_book_endpoint(
     payload: ReservationRequest,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
-    service: Annotated[BookingService, Depends(get_booking_service)],
+    service: Annotated[BookingServiceBackend, Depends(get_booking_service)],
 ) -> dict[str, Any]:
     """Reserves a copy of a book for the authenticated member (FR-B1, FR-B9, BR-01)."""
     try:
@@ -120,7 +115,7 @@ def reserve_book_endpoint(
 def borrow_book_endpoint(
     booking_id: int,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
-    service: Annotated[BookingService, Depends(get_booking_service)],
+    service: Annotated[BookingServiceBackend, Depends(get_booking_service)],
 ) -> dict[str, Any]:
     """Transitions a reservation to borrowed with a 14-day due date (BR-05, BR-06)."""
     try:
@@ -143,7 +138,7 @@ def borrow_book_endpoint(
 def return_book_endpoint(
     booking_id: int,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
-    service: Annotated[BookingService, Depends(get_booking_service)],
+    service: Annotated[BookingServiceBackend, Depends(get_booking_service)],
 ) -> dict[str, Any]:
     """Processes return of borrowed book and restores available copy once (BR-07, BR-08)."""
     try:
@@ -166,7 +161,7 @@ def return_book_endpoint(
 def cancel_booking_endpoint(
     booking_id: int,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
-    service: Annotated[BookingService, Depends(get_booking_service)],
+    service: Annotated[BookingServiceBackend, Depends(get_booking_service)],
 ) -> dict[str, Any]:
     """Cancels an active reservation and restores available copy (BR-09, BR-11)."""
     try:
@@ -188,7 +183,7 @@ def cancel_booking_endpoint(
 @router.get("/me", status_code=status.HTTP_200_OK)
 def get_my_bookings_endpoint(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
-    service: Annotated[BookingService, Depends(get_booking_service)],
+    service: Annotated[BookingServiceBackend, Depends(get_booking_service)],
 ) -> dict[str, list[dict[str, Any]]]:
     """Returns member's bookings with status, dates, and overdue flag (FR-B7)."""
     bookings = service.get_user_bookings(user_id=current_user.id)
@@ -199,7 +194,7 @@ def get_my_bookings_endpoint(
 def get_booking_endpoint(
     booking_id: int,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
-    service: Annotated[BookingService, Depends(get_booking_service)],
+    service: Annotated[BookingServiceBackend, Depends(get_booking_service)],
 ) -> dict[str, Any]:
     """Retrieves single booking by ID with ownership check and dynamic hold expiry (FR-B10)."""
     booking = service.get_booking(booking_id=booking_id)

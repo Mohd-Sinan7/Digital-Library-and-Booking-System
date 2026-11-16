@@ -11,9 +11,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.users.models import ADMIN
+
+_bearer = HTTPBearer(auto_error=False)
 
 # Set JWT_SECRET in .env (at least 32 characters). The default is for local use only.
 JWT_SECRET = os.getenv("JWT_SECRET", "local-development-secret-not-for-production")
@@ -45,12 +48,15 @@ def create_access_token(user: CurrentUser, expires_in: timedelta | None = None) 
     return jwt.encode(claims, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def get_current_user(authorization: str | None = Header(default=None)) -> CurrentUser:
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> CurrentUser:
     """Return the user for the request's bearer token, or reject it with 401 (NFR-U2).
 
     A missing, malformed, tampered or expired token all get the same 401.
     """
-    scheme, _, token = (authorization or "").partition(" ")
+    scheme = credentials.scheme if credentials else ""
+    token = credentials.credentials if credentials else ""
     try:
         if scheme.lower() != "bearer":
             raise jwt.InvalidTokenError("not a bearer token")
